@@ -1,3 +1,4 @@
 build
 .clangd
 .cache
+training_data
