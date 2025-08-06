@@ -1,9 +1,9 @@
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-#include "image_loader.h"
+#include <stb_image.h>
+#include <image_loader.h>
 #include <iostream>
 
-bool load_image(const std::string& path, std::vector<float>& out_image, int& width, int& height) {
+bool loadImage(const std::string& path, std::vector<float>& out_image, int& width, int& height) {
     int channels;
     unsigned char* img = stbi_load(path.c_str(), &width, &height, &channels, 3);
     if (!img) {

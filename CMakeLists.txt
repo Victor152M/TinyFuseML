@@ -1,11 +1,14 @@
 cmake_minimum_required(VERSION 3.18)
 
+set(CUDAToolkit_ROOT "/usr/local/cuda-11.8")
+
 find_package(CUDAToolkit REQUIRED)
+find_package(OpenCV REQUIRED)
 
 # Set the host compiler before enabling CUDA
-set(CMAKE_C_COMPILER /usr/bin/gcc-12)
-set(CMAKE_CXX_COMPILER /usr/bin/g++-12)
-set(CMAKE_CUDA_HOST_COMPILER /usr/bin/g++-12)
+set(CMAKE_C_COMPILER /usr/bin/gcc-11)
+set(CMAKE_CXX_COMPILER /usr/bin/g++-11)
+set(CMAKE_CUDA_HOST_COMPILER /usr/bin/g++-11)
 
 project(cuda_project LANGUAGES CXX CUDA)
 
@@ -23,6 +26,8 @@ add_executable(cuda_project
     src/mlp_kernel.cu
     src/image_loader.cpp
     src/image_writer.cpp
+    src/fourier_encoding.cpp
+    src/hash_encoding.cu
 )
 
 target_include_directories(cuda_project PRIVATE
@@ -36,6 +41,7 @@ target_compile_options(cuda_project PRIVATE
 
 target_include_directories(cuda_project PRIVATE
     ${CUDAToolkit_INCLUDE_DIRS}
+    ${OpenCV_INCLUDE_DIRS}
 )
 
 set_target_properties(cuda_project PROPERTIES
@@ -43,4 +49,8 @@ set_target_properties(cuda_project PROPERTIES
 )
 
 target_link_libraries(cuda_project PRIVATE CUDA::cudart)
+target_link_libraries(cuda_project PRIVATE ${OpenCV_LIBS})
+
+
+
 

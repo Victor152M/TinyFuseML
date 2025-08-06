@@ -13,11 +13,10 @@ mkdir $BUILD_DIR
 cd $BUILD_DIR
 
 echo "Running CMake configuration..."
-cmake ..
+cmake -DOpenCV_DIR=/usr/lib/x86_64-linux-gnu/cmake/opencv4 -Wno-dev ..
 
 echo "Building project..."
 cmake --build .
 
 echo "Running Project..."
 ./cuda_project
-

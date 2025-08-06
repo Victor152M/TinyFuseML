@@ -1,113 +1,208 @@
-#include <mlp_kernel.cuh>
 #include <relu.h>
+#include <hash_encoding.cuh>
+#include <cstdio>
 
-__global__ void mlp_kernel(
-    const float* __restrict__ input,
+__global__ void mlpKernel(
+    const float* __restrict__ positions,  // raw x,y pairs
     float* __restrict__ weightsLayer1,
     float* __restrict__ biasLayer1,
     float* __restrict__ weightsLayer2,
     float* __restrict__ biasLayer2,
-    float* output,
-    int input_size,
-    int hidden_size,
-    int output_size,
-    float learning_rate,
-    const float* __restrict__ target,
-    bool training)
+    float* __restrict__ weightsLayer3, 
+    float* __restrict__ biasLayer3,
+    float* __restrict__ outputs,
+    int inputSize,
+    int hiddenSize1,
+    int hiddenSize2,
+    int outputSize,
+    int batchSize,
+    float learningRate,
+    const float* __restrict__ targets,
+    bool training,
+    float* __restrict__ hashTable)
 {
+    // Identify the sample each thread works on
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= batchSize) return;
+
+    //if (idx == 0) {
+    //    printf(" Hash[0] = %f, Hash[1] = %f, Hash[2] = %f\n", hashTable[0], hashTable[1], hashTable[2]);
+    //}
+
+    float encodedInput[HASH_ENCODED_SIZE];
+    int hashIndices[HASH_ENCODED_SIZE * 4];
+
+    float x = positions[idx * 2 + 0];
+    float y = positions[idx * 2 + 1];
+
+    hashEncode(x, y, encodedInput, hashTable, hashIndices);
+
+
+    const float* input = encodedInput;
+    const float* target = targets + idx * outputSize;
+    float* output = outputs + idx * outputSize;
+
+    //if (idx == 0) {
+    //    printf("Hash[0]=%f, Hash[1]=%f, Hash[2]=%f\n", hashTable[0], hashTable[1], hashTable[2]);
+    //}
+
+    //if (idx == 0) {
+    //    printf("EncodedInput: ");
+    //    for (int i = 0; i < HASH_ENCODED_SIZE; ++i)
+    //        printf("%f ", encodedInput[i]);
+    //    printf("\n");
+    //}
+
+    extern __shared__ float shared[];
+
+    int tid = threadIdx.x;
+
+    int local_size = hiddenSize1 + hiddenSize2 + outputSize + outputSize + hiddenSize2 + hiddenSize1;
+    float* activation1                 = shared + tid * local_size;
+    float* activation2                 = activation1 + hiddenSize1;
+    float* outputGradient              = activation2 + hiddenSize2;
+    float* preActivationGrad3          = outputGradient + outputSize;
+    float* layer2_output_gradient      = preActivationGrad3 + outputSize;
+    float* layer1_output_gradient      = layer2_output_gradient + hiddenSize2;
+
     //Forward pass
 
     //Hopefully stored in GPU registers
-    float intermediateActivation[3];
 
     #pragma unroll
-    for (int i = 0; i < 3; i++){
+    for (int i = 0; i < hiddenSize1; i++) {
         float sum = biasLayer1[i];
-        sum += weightsLayer1[i * 3 + 0] * input[0];
-        sum += weightsLayer1[i * 3 + 1] * input[1];
-        sum += weightsLayer1[i * 3 + 2] * input[2];
-        intermediateActivation[i] = relu(sum);
+        for (int j = 0; j < inputSize; j++) {
+            sum += weightsLayer1[i * inputSize + j] * input[j];
+        }
+        activation1[i] = relu(sum);
     }
 
     #pragma unroll
-    for (int i = 0; i < 3; i++){
+    // Hidden1 → Hidden2
+    for (int i = 0; i < hiddenSize2; i++) {
         float sum = biasLayer2[i];
-        sum += weightsLayer2[i * 3 + 0] * intermediateActivation[0];
-        sum += weightsLayer2[i * 3 + 1] * intermediateActivation[1];
-        sum += weightsLayer2[i * 3 + 2] * intermediateActivation[2];
-        output[i] = sum; // Normally relu(sum) but just sum for regression
+        for (int j = 0; j < hiddenSize1; j++) {
+            sum += weightsLayer2[i * hiddenSize1 + j] * activation1[j];
+        }
+        activation2[i] = relu(sum);
+    }
+
+    // Hidden2 → Output (Linear)
+    for (int i = 0; i < outputSize; i++) {
+        float sum = biasLayer3[i];
+        for (int j = 0; j < hiddenSize2; j++) {
+            sum += weightsLayer3[i * hiddenSize2 + j] * activation2[j];
+        }
+        output[i] = sum;
     }
 
     if (!training) return;
 
     // Backward pass
 
-    // Graadient of the loss
-    float outputGradient[3];
-
-    #pragma unroll
-    for (int i = 0; i < 3; i++){
-        // Derivative of the Mean Squared Error
-        outputGradient[i] = output[i] - target[i];
+    // Gradient of the loss
+    for (int i = 0; i < outputSize; i++) {
+        outputGradient[i]     = output[i] - target[i];
+        preActivationGrad3[i] = outputGradient[i]; // Linear output
+    }
+    
+    // Update weights for Layer3: Hidden2 → Output
+    for (int i = 0; i < outputSize; i++) {
+        for (int j = 0; j < hiddenSize2; j++) {
+            float grad = preActivationGrad3[i] * activation2[j];
+            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
+            atomicAdd(&weightsLayer3[i * hiddenSize2 + j], -learningRate * grad);
+        }
+        atomicAdd(&biasLayer3[i], -learningRate * preActivationGrad3[i]);
     }
 
-    // Gradients for weightsLayer2 (dL/dW2)
-    float preActivationLayer2_gradient[3];
-    #pragma unroll
-    for (int i = 0; i < 3; i++) {
-        //preActivationLayer2_gradient[i] = outputGradient[i] * reluDerivative(output[i]); before removing relu from the output
-        preActivationLayer2_gradient[i] = outputGradient[i];
-    }
-
-    // Updating Layer 2
-    #pragma unroll
-    for (int i = 0; i < 9; i++) {
-        int row = i / 3;
-        int col = i % 3;
-        float grad = preActivationLayer2_gradient[row] * intermediateActivation[col];
-        weightsLayer2[i] -= learning_rate * grad;
-    }
-
-    #pragma unroll
-    for (int i = 0; i < 3; i++) {
-        biasLayer2[i] -= learning_rate * preActivationLayer2_gradient[i];
-    }
-
-    //Layer 1
-    float layer1_output_gradient[3];
-
-    layer1_output_gradient[0] =
-        (preActivationLayer2_gradient[0] * weightsLayer2[0 * 3 + 0]) +
-        (preActivationLayer2_gradient[1] * weightsLayer2[1 * 3 + 0]) +
-        (preActivationLayer2_gradient[2] * weightsLayer2[2 * 3 + 0]);
-
-    layer1_output_gradient[1] =
-        (preActivationLayer2_gradient[0] * weightsLayer2[0 * 3 + 1]) +
-        (preActivationLayer2_gradient[1] * weightsLayer2[1 * 3 + 1]) +
-        (preActivationLayer2_gradient[2] * weightsLayer2[2 * 3 + 1]);
-
-    layer1_output_gradient[2] =
-        (preActivationLayer2_gradient[0] * weightsLayer2[0 * 3 + 2]) +
-        (preActivationLayer2_gradient[1] * weightsLayer2[1 * 3 + 2]) +
-        (preActivationLayer2_gradient[2] * weightsLayer2[2 * 3 + 2]);
-
-    #pragma unroll
-    for (int i = 0; i < 3; i++) {
-        layer1_output_gradient[i] *= reluDerivative(intermediateActivation[i]);
-    }
-
-    // Updating Layer 1
-    #pragma unroll
-    for (int i = 0; i < 9; i++) {
-        int row = i / 3;
-        int col = i % 3;
-        float grad = layer1_output_gradient[row] * input[col];
-        weightsLayer1[i] -= learning_rate * grad;
+    // Backprop: Layer3 → Layer2
+    for (int j = 0; j < hiddenSize2; j++) {
+        float grad = 0.0f;
+        for (int i = 0; i < outputSize; i++) {
+            grad += preActivationGrad3[i] * weightsLayer3[i * hiddenSize2 + j];
+        }
+        layer2_output_gradient[j] = grad * relu_derivative(activation2[j]);
     }
 
     #pragma unroll
-    for (int i = 0; i < 3; i++) {
-        biasLayer1[i] -= learning_rate * layer1_output_gradient[i];
+    // Update weights for Layer2: Hidden1 → Hidden2
+    for (int i = 0; i < hiddenSize2; i++) {
+        for (int j = 0; j < hiddenSize1; j++) {
+            float grad = layer2_output_gradient[i] * activation1[j];
+            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
+            atomicAdd(&weightsLayer2[i * hiddenSize1 + j], -learningRate * grad);
+        }
+        atomicAdd(&biasLayer2[i], -learningRate * layer2_output_gradient[i]);
+    }
+
+        // Backprop: Layer2 → Layer1
+    for (int j = 0; j < hiddenSize1; j++) {
+        float grad = 0.0f;
+        for (int i = 0; i < hiddenSize2; i++) {
+            grad += layer2_output_gradient[i] * weightsLayer2[i * hiddenSize1 + j];
+        }
+        layer1_output_gradient[j] = grad * relu_derivative(activation1[j]);
+    }
+
+
+    // === Backprop into hashTable using layer1_output_gradient ===
+    int hashOffset = 0;
+    for (int level = 0; level < N_LEVELS; ++level) {
+        //float hash_lr = 0.95f / powf(SCALE_FACTOR, level);
+        float hash_lr = 0.95;
+        int resolution = static_cast<int>(BASE_RES * powf(SCALE_FACTOR, level));
+
+        float fx = x * resolution;
+        float fy = y * resolution;
+        int x0 = floorf(fx);
+        int y0 = floorf(fy);
+        float dx = fx - x0;
+        float dy = fy - y0;
+
+        for (int f = 0; f < FEATURES_PER_LEVEL; ++f) {
+            //if (idx == 0 && level == 0 && f == 0) {
+            //    for (int j = 0; j < hiddenSize1; ++j) {
+            //        printf("layer1_output_gradient[%d] = %f\n", j, layer1_output_gradient[j]);
+            //    }
+            //}
+
+            dx = fminf(fmaxf(dx, 0.0f), 1.0f);
+            dy = fminf(fmaxf(dy, 0.0f), 1.0f);
+            int idx00 = hashIndices[hashOffset++];
+            int idx10 = hashIndices[hashOffset++];
+            int idx01 = hashIndices[hashOffset++];
+            int idx11 = hashIndices[hashOffset++];
+
+            float w00 = (1 - dx) * (1 - dy);
+            float w10 = dx * (1 - dy);
+            float w01 = (1 - dx) * dy;
+            float w11 = dx * dy;
+
+            float grad = 0.0f;
+            for (int j = 0; j < hiddenSize1; ++j) {
+                grad += weightsLayer1[j * inputSize + level * FEATURES_PER_LEVEL + f] * layer1_output_gradient[j];
+            }
+            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
+            if (!isfinite(grad)) grad = 0.0f;
+
+            atomicAdd(&hashTable[idx00], -hash_lr * w00 * grad);
+            atomicAdd(&hashTable[idx10], -hash_lr * w10 * grad);
+            atomicAdd(&hashTable[idx01], -hash_lr * w01 * grad);
+            atomicAdd(&hashTable[idx11], -hash_lr * w11 * grad);
+        }
+    }
+
+
+    // Update weights for Layer1: Input → Hidden1
+    for (int i = 0; i < hiddenSize1; i++) {
+        for (int j = 0; j < inputSize; j++) {
+            float grad = layer1_output_gradient[i] * input[j];
+            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
+            atomicAdd(&weightsLayer1[i * inputSize + j], -learningRate * grad);
+        }
+        atomicAdd(&biasLayer1[i], -learningRate * layer1_output_gradient[i]);
     }
 
 }
