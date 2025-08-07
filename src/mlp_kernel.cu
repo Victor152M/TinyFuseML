@@ -17,6 +17,7 @@ __global__ void mlpKernel(
     int outputSize,
     int batchSize,
     float learningRate,
+    float hashLearningRate,
     const float* __restrict__ targets,
     bool training,
     float* __restrict__ hashTable)
@@ -150,8 +151,12 @@ __global__ void mlpKernel(
     // === Backprop into hashTable using layer1_output_gradient ===
     int hashOffset = 0;
     for (int level = 0; level < N_LEVELS; ++level) {
-        //float hash_lr = 0.95f / powf(SCALE_FACTOR, level);
-        float hash_lr = 0.95;
+        //float hash_lr = 0.9f / powf(SCALE_FACTOR, level);
+        //float hash_lr = hashLearningRate;
+        // float hash_lr = 0.95; will cause a few black pixels
+        float base_lr = 0.25f;
+        float base = 1.4f;
+        float hash_lr = base_lr / powf(base, level);
         int resolution = static_cast<int>(BASE_RES * powf(SCALE_FACTOR, level));
 
         float fx = x * resolution;
@@ -204,6 +209,5 @@ __global__ void mlpKernel(
         }
         atomicAdd(&biasLayer1[i], -learningRate * layer1_output_gradient[i]);
     }
-
 }
 

@@ -6,7 +6,7 @@
 constexpr int N_LEVELS = 16; // L
 constexpr int FEATURES_PER_LEVEL = 4; // F
 constexpr int BASE_RES = 256;
-constexpr int LOG2_HASHMAP_SIZE = 22; // T
+constexpr int LOG2_HASHMAP_SIZE = 21; // T
 constexpr float SCALE_FACTOR = 1.7f;
 
 // Total encoded input size

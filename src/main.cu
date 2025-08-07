@@ -29,7 +29,7 @@ int main() {
 
     allocateHashTable(&d_hashTable);
 
-    const int inputSize = 2;
+    const int inputSize = HASH_ENCODED_SIZE;
     const int hiddenSize1 = 16;
     const int hiddenSize2 = 16;
     const int outputSize = 3;
@@ -72,7 +72,7 @@ int main() {
 
     float h_target[batchSize * outputSize];
 
-    float learningRate = 0.0005f;
+    float learningRate = 0.0002f;
 
     float *d_weightsLayer1, *d_weightsLayer2, *d_biasLayer1, *d_biasLayer2, *d_output, *d_target;
     float *d_weightsLayer3, *d_biasLayer3, *d_positions = nullptr;
@@ -122,7 +122,48 @@ int main() {
 
     auto startTime = std::chrono::high_resolution_clock::now();
 
+    bool enablePreview = false;
+
+    int width_minus_1 = width - 1;
+    int height_minus_1 = height - 1;
+
+    float hashLearningRate = 15.0; // check inside kernel as well
+
+    int currentFullPassIdx = 0;
+    const int fullPassStartStep = 10;
+    int totalPixels = width * height;
+
     for (int step = 0; step <= 2000; step++) {
+        if (false){//(step % 16) >= 12) {
+            //hashLearningRate = 0.02;
+            // === Full pixel pass phase ===
+            //hashLearningRate = 0.07;
+            for (int i = 0; i < batchSize; i++) {
+                int pixelIdx = (currentFullPassIdx + i) % totalPixels;
+                if (pixelIdx >= totalPixels) {
+                    // Reset to loop over image again (optional)
+                    currentFullPassIdx = 0;
+                    pixelIdx = currentFullPassIdx + i;
+                }
+
+                int px = pixelIdx % width;
+                int py = pixelIdx / width;
+
+                float x = px / float(width);
+                float y = py / float(height);
+
+                h_positions[i * 2 + 0] = x;
+                h_positions[i * 2 + 1] = y;
+
+                int idx = (py * width + px) * 3;
+                h_target[i * outputSize + 0] = img_data[idx + 0];
+                h_target[i * outputSize + 1] = img_data[idx + 1];
+                h_target[i * outputSize + 2] = img_data[idx + 2];
+            }
+
+            currentFullPassIdx += batchSize;  // Advance batc
+        }
+        //else{
         for (int i = 0; i < batchSize; i++) {
             int px = rand() % width;
             int py = rand() % height;
@@ -140,7 +181,7 @@ int main() {
             h_target[i * outputSize + 1] = img_data[idx + 1];
             h_target[i * outputSize + 2] = img_data[idx + 2];
         };
-
+        //}
 
         cudaMemcpy(d_positions, h_positions.data(), batchSize*2*sizeof(float), cudaMemcpyHostToDevice);
         cudaMemcpy(d_target,    h_target,          batchSize*3*sizeof(float), cudaMemcpyHostToDevice);
@@ -150,7 +191,7 @@ int main() {
             d_weightsLayer2, d_biasLayer2,
             d_weightsLayer3, d_biasLayer3,
             d_output, HASH_ENCODED_SIZE, hiddenSize1, hiddenSize2,
-            outputSize, batchSize, learningRate, d_target, true, d_hashTable);
+            outputSize, batchSize, learningRate, hashLearningRate, d_target, true, d_hashTable);
 
         cudaDeviceSynchronize();
 
@@ -160,38 +201,42 @@ int main() {
             exit(1);
         }
 
-        // Get a random pixel from batch
-        int random_thread = rand() % batchSize;
-        assert(random_thread >= 0 && random_thread < batchSize);
         cudaMemcpy(h_output.data(), d_output, batchSize * 3 * sizeof(float), cudaMemcpyDeviceToHost);
 
-        
-        for (int i = 0; i < batchSize; ++i) {
-            float jitter_x = ((rand() % 100) / 100.0f - 0.5f) / width;  // ~ ±0.5 px jitter
-            float jitter_y = ((rand() % 100) / 100.0f - 0.5f) / height;
+        if (enablePreview){
+            for (int i = 0; i < batchSize; ++i) {
+                float jitter_x = ((rand() % 100) / 100.0f - 0.5f) / width;  // ~ ±0.5 px jitter
+                float jitter_y = ((rand() % 100) / 100.0f - 0.5f) / height;
 
-            float fx = std::min(std::max(h_positions[i * 2 + 0] + jitter_x, 0.0f), 1.0f);
-            float fy = std::min(std::max(h_positions[i * 2 + 1] + jitter_y, 0.0f), 1.0f);
+                float fx = std::min(std::max(h_positions[i * 2 + 0] + jitter_x, 0.0f), 1.0f);
+                float fy = std::min(std::max(h_positions[i * 2 + 1] + jitter_y, 0.0f), 1.0f);
 
 
-            int px = std::min(static_cast<int>(fx * width), width - 1);
-            int py = std::min(static_cast<int>(fy * height), height - 1);
+                int px = std::min(static_cast<int>(fx * width), width_minus_1);
+                int py = std::min(static_cast<int>(fy * height), height_minus_1);
 
-            if (px >= 0 && px < width && py >= 0 && py < height) {
-                float* rgb = &h_output[i * 3];
-                cv::Vec3b& pixel = preview.at<cv::Vec3b>(py, px);
-                pixel[2] = static_cast<unsigned char>(fminf(fmaxf(rgb[0], 0.0f), 1.0f) * 255.0f); // R
-                pixel[1] = static_cast<unsigned char>(fminf(fmaxf(rgb[1], 0.0f), 1.0f) * 255.0f); // G
-                pixel[0] = static_cast<unsigned char>(fminf(fmaxf(rgb[2], 0.0f), 1.0f) * 255.0f); // B
+                if (px >= 0 && px < width && py >= 0 && py < height) {
+                    float* rgb = &h_output[i * 3];
+                    cv::Vec3b& pixel = preview.at<cv::Vec3b>(py, px);
+                    pixel[2] = static_cast<unsigned char>(fminf(fmaxf(rgb[0], 0.0f), 1.0f) * 255.0f); // R
+                    pixel[1] = static_cast<unsigned char>(fminf(fmaxf(rgb[1], 0.0f), 1.0f) * 255.0f); // G
+                    pixel[0] = static_cast<unsigned char>(fminf(fmaxf(rgb[2], 0.0f), 1.0f) * 255.0f); // B
+                }
+            }
+
+            if (step % 1 == 0) {
+                cv::Mat display;
+                cv::resize(preview, display, cv::Size(), 1, 1, cv::INTER_NEAREST);
+                cv::imshow("Live Training", display);
+                cv::waitKey(1);
             }
         }
 
-        if (step % 1 == 0) {
-            cv::Mat display;
-            cv::resize(preview, display, cv::Size(), 1, 1, cv::INTER_NEAREST);
-            cv::imshow("Live Training", display);
-            cv::waitKey(1);
-        }
+        //auto endTime = std::chrono::high_resolution_clock::now();
+        //std::chrono::duration<double> totalElapsed = endTime - startTime;
+        //if (totalElapsed.count() > 3.0){
+        //    break;
+        //}
 
         if (step % 1 == 0) {
             //learningRate *= 0.98;
@@ -215,7 +260,7 @@ int main() {
             learningRate = std::max(learningRate, 1e-4f);
         }
 
-        if (step % 25 == 0){
+        if (step % 5 == 0){
             learningRate *= 0.9;
         }
     }
@@ -223,7 +268,7 @@ int main() {
 
     // Inference
 
-    const int inferenceBatchSize = 8192; // or tune this depending on your GPU
+    const int inferenceBatchSize = 8192;
     std::vector<float> h_batchPositions(inferenceBatchSize * 2);
     std::vector<float> h_batchOutput(inferenceBatchSize * 3);
 
@@ -247,7 +292,7 @@ int main() {
             d_weightsLayer2, d_biasLayer2,
             d_weightsLayer3, d_biasLayer3,
             d_output, HASH_ENCODED_SIZE, hiddenSize1, hiddenSize2,
-            outputSize, currentBatch, learningRate, d_target,  // dummy
+            outputSize, currentBatch, learningRate, hashLearningRate, d_target,  // dummy
             false, d_hashTable
         );
 
@@ -272,9 +317,9 @@ int main() {
     saveRgbImage(output_image.data(), width, height, "Full_Inference.png");
 
     cudaMemcpy(h_output.data(), d_output, outputSize * sizeof(float), cudaMemcpyDeviceToHost);
-    for (int i = 0; i < outputSize; i++) {
-        std::cout << "Neuron " << i << ": " << h_output[i] << std::endl;
-    }
+    //for (int i = 0; i < outputSize; i++) {
+    //    std::cout << "Neuron " << i << ": " << h_output[i] << std::endl;
+    //}
 
     // Cleanup
     cudaFree(d_positions);

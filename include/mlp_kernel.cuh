@@ -15,6 +15,7 @@ __global__ void mlpKernel(
     int outputSize,
     int batchSize,
     float learningRate,
+    float hashLearningRate,
     const float* __restrict__ targets,
     bool training,
     float* __restrict__ hashTable);

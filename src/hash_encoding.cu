@@ -17,8 +17,8 @@ __device__ void hashEncode(
     float* hashTable,
     int* hashIndices  // Store which indices were accessed
 ) {
-    int outIdx = 0;
-    int indexOut = 0;
+    int indexOuput = 0;
+    int indexHashIndices = 0;
 
     for (int level = 0; level < N_LEVELS; ++level) {
         int resolution = static_cast<int>(BASE_RES * powf(SCALE_FACTOR, level));
@@ -31,17 +31,17 @@ __device__ void hashEncode(
         float dy = fy - y0;
 
         auto hash = [&](int xi, int yi) -> int {
+            // Each hash has to map to an entry in the table
             return spatialHash(xi, yi, level) & ((1 << LOG2_HASHMAP_SIZE) - 1);
         };
 
         for (int f = 0; f < FEATURES_PER_LEVEL; ++f) {
             int levelOffset = level * (1 << LOG2_HASHMAP_SIZE) * FEATURES_PER_LEVEL;
 
-            int idx00 = levelOffset + (hash(x0,     y0)     & ((1 << LOG2_HASHMAP_SIZE) - 1)) * FEATURES_PER_LEVEL + f;
-            int idx10 = levelOffset + (hash(x0 + 1, y0)     & ((1 << LOG2_HASHMAP_SIZE) - 1)) * FEATURES_PER_LEVEL + f;
-            int idx01 = levelOffset + (hash(x0,     y0 + 1) & ((1 << LOG2_HASHMAP_SIZE) - 1)) * FEATURES_PER_LEVEL + f;
-            int idx11 = levelOffset + (hash(x0 + 1, y0 + 1) & ((1 << LOG2_HASHMAP_SIZE) - 1)) * FEATURES_PER_LEVEL + f;
-
+            int idx00 = levelOffset + hash(x0,     y0) * FEATURES_PER_LEVEL + f;
+            int idx10 = levelOffset + hash(x0 + 1, y0) * FEATURES_PER_LEVEL + f;
+            int idx01 = levelOffset + hash(x0,     y0 + 1) * FEATURES_PER_LEVEL + f;
+            int idx11 = levelOffset + hash(x0 + 1, y0 + 1) * FEATURES_PER_LEVEL + f;
 
             float feat00 = hashTable[idx00];
             float feat10 = hashTable[idx10];
@@ -52,25 +52,25 @@ __device__ void hashEncode(
             float bottom = (1 - dx) * feat01 + dx * feat11;
             float interpolated = (1 - dy) * top + dy * bottom;
             //float scaled = interpolated;
-            output[outIdx++] = interpolated;
+            output[indexOuput++] = interpolated;
 
             // Save indices for backprop
-            hashIndices[indexOut++] = idx00;
-            hashIndices[indexOut++] = idx10;
-            hashIndices[indexOut++] = idx01;
-            hashIndices[indexOut++] = idx11;
+            hashIndices[indexHashIndices++] = idx00;
+            hashIndices[indexHashIndices++] = idx10;
+            hashIndices[indexHashIndices++] = idx01;
+            hashIndices[indexHashIndices++] = idx11;
         }
     }
 }
 
 // Allocates full hash table on device
 void allocateHashTable(float** deviceHashTable) {
-    const int levelSize = (1 << LOG2_HASHMAP_SIZE) * FEATURES_PER_LEVEL;
+    const int levelSize = (1 << LOG2_HASHMAP_SIZE) * FEATURES_PER_LEVEL; // Each hash actually coresspond to a tile
     const size_t tableSize = N_LEVELS * levelSize;
 
     std::vector<float> tempTable(tableSize);
     for (size_t i = 0; i < tableSize; ++i) {
-        tempTable[i] = ((float) rand() / RAND_MAX - 0.5f) * 0.001f;
+        tempTable[i] = ((float) rand() / RAND_MAX - 0.5f) * 0.01f;
     }
 
     cudaMalloc(deviceHashTable, tableSize * sizeof(float));
