@@ -3,11 +3,12 @@
 
 
 __device__ __forceinline__ unsigned int spatialHash(int x, int y, int level) {
-    const unsigned int PRIME1 = 73856093u;
-    const unsigned int PRIME2 = 19349663u;
-    const unsigned int PRIME3 = 83492791u;
+    const unsigned int PRIME1 = 1u; //works surpsingly well to use a 1 instead
+    const unsigned int PRIME2 = 2654435761u;
+    const unsigned int PRIME3 = 805459861u;
 
-    return (x * PRIME1) ^ (y * PRIME2) ^ (level * PRIME3);
+    unsigned int hash = (x * PRIME1) ^ (y * PRIME2) ^ (level * PRIME3);
+    return hash % (HASHMAP_SIZE - 1);
 }
 
 // Hash encoding with bilinear interpolation + index tracking for training
@@ -20,8 +21,10 @@ __device__ void hashEncode(
     int indexOuput = 0;
     int indexHashIndices = 0;
 
+
     for (int level = 0; level < N_LEVELS; ++level) {
         int resolution = static_cast<int>(BASE_RES * powf(SCALE_FACTOR, level));
+        int nVertices = (resolution + 1) * (resolution + 1);
 
         float fx = x * resolution;
         float fy = y * resolution;
@@ -29,19 +32,27 @@ __device__ void hashEncode(
         int y0 = floorf(fy);
         float dx = fx - x0;
         float dy = fy - y0;
-
-        auto hash = [&](int xi, int yi) -> int {
-            // Each hash has to map to an entry in the table
-            return spatialHash(xi, yi, level) & ((1 << LOG2_HASHMAP_SIZE) - 1);
+        
+        auto getIndex = [&](int xi, int yi, int feature) -> int {
+            if (nVertices <= HASHMAP_SIZE) {
+                // Direct mapping for coarse levels (no hashing)
+                int baseIndex = level * HASHMAP_SIZE * FEATURES_PER_LEVEL + (yi * (resolution + 1) + xi) * FEATURES_PER_LEVEL;
+                return baseIndex + feature;
+            } else {
+                // Hashing for fine levels
+                int hashVal = spatialHash(xi, yi, level);
+                int baseIndex = level * HASHMAP_SIZE * FEATURES_PER_LEVEL + hashVal * FEATURES_PER_LEVEL;
+                return baseIndex + feature;
+            }
         };
 
         for (int f = 0; f < FEATURES_PER_LEVEL; ++f) {
             int levelOffset = level * (1 << LOG2_HASHMAP_SIZE) * FEATURES_PER_LEVEL;
 
-            int idx00 = levelOffset + hash(x0,     y0) * FEATURES_PER_LEVEL + f;
-            int idx10 = levelOffset + hash(x0 + 1, y0) * FEATURES_PER_LEVEL + f;
-            int idx01 = levelOffset + hash(x0,     y0 + 1) * FEATURES_PER_LEVEL + f;
-            int idx11 = levelOffset + hash(x0 + 1, y0 + 1) * FEATURES_PER_LEVEL + f;
+            int idx00 = getIndex(x0,     y0,     f);
+            int idx10 = getIndex(x0 + 1, y0,     f);
+            int idx01 = getIndex(x0,     y0 + 1, f);
+            int idx11 = getIndex(x0 + 1, y0 + 1, f);
 
             float feat00 = hashTable[idx00];
             float feat10 = hashTable[idx10];
@@ -51,7 +62,7 @@ __device__ void hashEncode(
             float top = (1 - dx) * feat00 + dx * feat10;
             float bottom = (1 - dx) * feat01 + dx * feat11;
             float interpolated = (1 - dy) * top + dy * bottom;
-            //float scaled = interpolated;
+
             output[indexOuput++] = interpolated;
 
             // Save indices for backprop
@@ -63,9 +74,9 @@ __device__ void hashEncode(
     }
 }
 
-// Allocates full hash table on device
+
 void allocateHashTable(float** deviceHashTable) {
-    const int levelSize = (1 << LOG2_HASHMAP_SIZE) * FEATURES_PER_LEVEL; // Each hash actually coresspond to a tile
+    const int levelSize = (1 << LOG2_HASHMAP_SIZE) * FEATURES_PER_LEVEL; // Each hash coresspond to a tile
     const size_t tableSize = N_LEVELS * levelSize;
 
     std::vector<float> tempTable(tableSize);
