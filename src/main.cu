@@ -6,8 +6,8 @@
 #include <ostream>
 #include <image_loader.h>
 #include <image_writer.h>
-#include <cstdlib> // for rand()
-#include <ctime> // for seeding
+#include <cstdlib>
+#include <ctime>
 #include <fourier_encoding.h>
 #include <hash_encoding.cuh>
 #include <opencv2/opencv.hpp>
@@ -134,36 +134,6 @@ int main() {
     int totalPixels = width * height;
 
     for (int step = 0; step <= 2000; step++) {
-        if (false){//(step % 16) >= 12) {
-            //hashLearningRate = 0.02;
-            // === Full pixel pass phase ===
-            //hashLearningRate = 0.07;
-            for (int i = 0; i < batchSize; i++) {
-                int pixelIdx = (currentFullPassIdx + i) % totalPixels;
-                if (pixelIdx >= totalPixels) {
-                    // Reset to loop over image again (optional)
-                    currentFullPassIdx = 0;
-                    pixelIdx = currentFullPassIdx + i;
-                }
-
-                int px = pixelIdx % width;
-                int py = pixelIdx / width;
-
-                float x = px / float(width);
-                float y = py / float(height);
-
-                h_positions[i * 2 + 0] = x;
-                h_positions[i * 2 + 1] = y;
-
-                int idx = (py * width + px) * 3;
-                h_target[i * outputSize + 0] = img_data[idx + 0];
-                h_target[i * outputSize + 1] = img_data[idx + 1];
-                h_target[i * outputSize + 2] = img_data[idx + 2];
-            }
-
-            currentFullPassIdx += batchSize;  // Advance batc
-        }
-        //else{
         for (int i = 0; i < batchSize; i++) {
             int px = rand() % width;
             int py = rand() % height;
@@ -181,7 +151,6 @@ int main() {
             h_target[i * outputSize + 1] = img_data[idx + 1];
             h_target[i * outputSize + 2] = img_data[idx + 2];
         };
-        //}
 
         cudaMemcpy(d_positions, h_positions.data(), batchSize*2*sizeof(float), cudaMemcpyHostToDevice);
         cudaMemcpy(d_target,    h_target,          batchSize*3*sizeof(float), cudaMemcpyHostToDevice);
@@ -245,7 +214,7 @@ int main() {
                 float diff = h_output[i] - h_target[i];
                 batchLoss += diff * diff;
             }
-            batchLoss /= (batchSize * 3); // Mean squared error
+            batchLoss /= (batchSize * 3);
 
             std::cout << "Step " << step << ", Loss: " << batchLoss << std::endl;
 
@@ -267,8 +236,7 @@ int main() {
 
 
     // Inference
-
-    const int inferenceBatchSize = 8192;
+    const int inferenceBatchSize = 262144;
     std::vector<float> h_batchPositions(inferenceBatchSize * 2);
     std::vector<float> h_batchOutput(inferenceBatchSize * 3);
 
@@ -317,11 +285,7 @@ int main() {
     saveRgbImage(output_image.data(), width, height, "Full_Inference.png");
 
     cudaMemcpy(h_output.data(), d_output, outputSize * sizeof(float), cudaMemcpyDeviceToHost);
-    //for (int i = 0; i < outputSize; i++) {
-    //    std::cout << "Neuron " << i << ": " << h_output[i] << std::endl;
-    //}
 
-    // Cleanup
     cudaFree(d_positions);
     cudaFree(d_weightsLayer1);
     cudaFree(d_biasLayer1);

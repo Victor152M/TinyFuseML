@@ -3,7 +3,8 @@
 
 
 __device__ __forceinline__ unsigned int spatialHash(int x, int y, int level) {
-    const unsigned int PRIME1 = 1u; //works surpsingly well to use a 1 instead
+    const unsigned int PRIME1 = 1u; // cache locality -> efficient lookup 
+                                   // (still achieves pseudo-independence with d-1 permutated dimensions)
     const unsigned int PRIME2 = 2654435761u;
     const unsigned int PRIME3 = 805459861u;
 

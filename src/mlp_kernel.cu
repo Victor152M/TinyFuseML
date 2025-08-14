@@ -26,10 +26,6 @@ __global__ void mlpKernel(
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx >= batchSize) return;
 
-    //if (idx == 0) {
-    //    printf(" Hash[0] = %f, Hash[1] = %f, Hash[2] = %f\n", hashTable[0], hashTable[1], hashTable[2]);
-    //}
-
     float encodedInput[HASH_ENCODED_SIZE];
     int hashIndices[HASH_ENCODED_SIZE * 4];
 
@@ -38,21 +34,9 @@ __global__ void mlpKernel(
 
     hashEncode(x, y, encodedInput, hashTable, hashIndices);
 
-
     const float* input = encodedInput;
     const float* target = targets + idx * outputSize;
     float* output = outputs + idx * outputSize;
-
-    //if (idx == 0) {
-    //    printf("Hash[0]=%f, Hash[1]=%f, Hash[2]=%f\n", hashTable[0], hashTable[1], hashTable[2]);
-    //}
-
-    //if (idx == 0) {
-    //    printf("EncodedInput: ");
-    //    for (int i = 0; i < HASH_ENCODED_SIZE; ++i)
-    //        printf("%f ", encodedInput[i]);
-    //    printf("\n");
-    //}
 
     extern __shared__ float shared[];
 
@@ -67,9 +51,6 @@ __global__ void mlpKernel(
     float* layer1_output_gradient      = layer2_output_gradient + hiddenSize2;
 
     //Forward pass
-
-    //Hopefully stored in GPU registers
-
     #pragma unroll
     for (int i = 0; i < hiddenSize1; i++) {
         float sum = biasLayer1[i];
@@ -80,7 +61,7 @@ __global__ void mlpKernel(
     }
 
     #pragma unroll
-    // Hidden1 → Hidden2
+    // Hidden1 to Hidden2
     for (int i = 0; i < hiddenSize2; i++) {
         float sum = biasLayer2[i];
         for (int j = 0; j < hiddenSize1; j++) {
@@ -89,7 +70,7 @@ __global__ void mlpKernel(
         activation2[i] = relu(sum);
     }
 
-    // Hidden2 → Output (Linear)
+    // Hidden2 to Output (Linear)
     for (int i = 0; i < outputSize; i++) {
         float sum = biasLayer3[i];
         for (int j = 0; j < hiddenSize2; j++) {
@@ -108,7 +89,7 @@ __global__ void mlpKernel(
         preActivationGrad3[i] = outputGradient[i]; // Linear output
     }
     
-    // Update weights for Layer3: Hidden2 → Output
+    // Update weights for Layer3: Hidden2 to Output
     for (int i = 0; i < outputSize; i++) {
         for (int j = 0; j < hiddenSize2; j++) {
             float grad = preActivationGrad3[i] * activation2[j];
@@ -118,7 +99,7 @@ __global__ void mlpKernel(
         atomicAdd(&biasLayer3[i], -learningRate * preActivationGrad3[i]);
     }
 
-    // Backprop: Layer3 → Layer2
+    // Backprop: Layer3 to Layer2
     for (int j = 0; j < hiddenSize2; j++) {
         float grad = 0.0f;
         for (int i = 0; i < outputSize; i++) {
@@ -128,7 +109,7 @@ __global__ void mlpKernel(
     }
 
     #pragma unroll
-    // Update weights for Layer2: Hidden1 → Hidden2
+    // Update weights for Layer2: Hidden1 to Hidden2
     for (int i = 0; i < hiddenSize2; i++) {
         for (int j = 0; j < hiddenSize1; j++) {
             float grad = layer2_output_gradient[i] * activation1[j];
@@ -138,7 +119,7 @@ __global__ void mlpKernel(
         atomicAdd(&biasLayer2[i], -learningRate * layer2_output_gradient[i]);
     }
 
-        // Backprop: Layer2 → Layer1
+        // Backprop: Layer2 to Layer1
     for (int j = 0; j < hiddenSize1; j++) {
         float grad = 0.0f;
         for (int i = 0; i < hiddenSize2; i++) {
@@ -148,7 +129,7 @@ __global__ void mlpKernel(
     }
 
 
-    // === Backprop into hashTable using layer1_output_gradient ===
+    // Backprop into hashTable using layer1_output_gradient
     int hashOffset = 0;
     for (int level = 0; level < N_LEVELS; ++level) {
         //float hash_lr = 0.9f / powf(SCALE_FACTOR, level);
@@ -167,12 +148,6 @@ __global__ void mlpKernel(
         float dy = fy - y0;
 
         for (int f = 0; f < FEATURES_PER_LEVEL; ++f) {
-            //if (idx == 0 && level == 0 && f == 0) {
-            //    for (int j = 0; j < hiddenSize1; ++j) {
-            //        printf("layer1_output_gradient[%d] = %f\n", j, layer1_output_gradient[j]);
-            //    }
-            //}
-
             dx = fminf(fmaxf(dx, 0.0f), 1.0f);
             dy = fminf(fmaxf(dy, 0.0f), 1.0f);
             int idx00 = hashIndices[hashOffset++];
@@ -200,7 +175,7 @@ __global__ void mlpKernel(
     }
 
 
-    // Update weights for Layer1: Input → Hidden1
+    // Update weights for Layer1: Input to Hidden1
     for (int i = 0; i < hiddenSize1; i++) {
         for (int j = 0; j < inputSize; j++) {
             float grad = layer1_output_gradient[i] * input[j];
