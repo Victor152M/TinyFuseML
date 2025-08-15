@@ -35,16 +35,16 @@ __device__ void hashEncode(
         float dy = fy - y0;
         
         auto getIndex = [&](int xi, int yi, int feature) -> int {
+            int hashVal;
             if (nVertices <= HASHMAP_SIZE) {
-                // Direct mapping for coarse levels (no hashing)
-                int baseIndex = level * HASHMAP_SIZE * FEATURES_PER_LEVEL + (yi * (resolution + 1) + xi) * FEATURES_PER_LEVEL;
-                return baseIndex + feature;
+                // Wrap linear index to avoid going out of bounds
+                int linearIdx = yi * (resolution + 1) + xi;
+                hashVal = linearIdx % HASHMAP_SIZE;
             } else {
-                // Hashing for fine levels
-                int hashVal = spatialHash(xi, yi, level);
-                int baseIndex = level * HASHMAP_SIZE * FEATURES_PER_LEVEL + hashVal * FEATURES_PER_LEVEL;
-                return baseIndex + feature;
+                hashVal = spatialHash(xi, yi, level);
             }
+            int baseIndex = level * HASHMAP_SIZE * FEATURES_PER_LEVEL + hashVal * FEATURES_PER_LEVEL;
+            return baseIndex + feature;
         };
 
         for (int f = 0; f < FEATURES_PER_LEVEL; ++f) {
