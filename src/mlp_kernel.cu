@@ -134,9 +134,8 @@ __global__ void mlpKernel(
     for (int level = 0; level < N_LEVELS; ++level) {
         //float hash_lr = 0.9f / powf(SCALE_FACTOR, level);
         //float hash_lr = hashLearningRate;
-        // float hash_lr = 0.95; will cause a few black pixels
-        float base_lr = 0.25f;
-        float base = 1.4f;
+        float base_lr = 0.9f;
+        float base = 1.3f;
         float hash_lr = base_lr / powf(base, level);
         int resolution = static_cast<int>(BASE_RES * powf(SCALE_FACTOR, level));
 

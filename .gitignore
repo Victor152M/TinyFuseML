@@ -4,4 +4,3 @@ build
 training_data
 results
 .venv
-siren_comparison.py

@@ -19,4 +19,4 @@ echo "Building project..."
 cmake --build .
 
 echo "Running Project..."
-./cuda_project
+./tinyfuseml

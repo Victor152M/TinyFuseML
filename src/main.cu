@@ -15,14 +15,21 @@
 #include <chrono>
 
 
-
 float* d_hashTable;
 
-int main() {
+int main(int argc, char** argv) {
     std::vector<float> img_data;
     int width, height;
 
-    loadImage("../training_data/mountain.png", img_data, width, height);
+    std::string imagePath;
+    if (argc >= 2) {
+        imagePath = std::string(PROJECT_SOURCE_DIR) + argv[1];
+    } else {
+        imagePath = std::string(PROJECT_SOURCE_DIR) + "/training_example/cassette_shop_fullhd.png";
+    }
+    std::cout << "Using image path: " << imagePath << "\n";
+
+    loadImage(imagePath, img_data, width, height);
     std::cout << "Image loaded: " << width << "x" << height << std::endl;
 
     cv::Mat preview(height, width, CV_8UC3, cv::Scalar(0, 0, 0));
@@ -127,7 +134,7 @@ int main() {
     int width_minus_1 = width - 1;
     int height_minus_1 = height - 1;
 
-    float hashLearningRate = 15.0; // check inside kernel as well
+    float hashLearningRate = 0.25; // might be different inside the kernel, check that
 
     int currentFullPassIdx = 0;
     const int fullPassStartStep = 10;
@@ -174,7 +181,7 @@ int main() {
 
         if (enablePreview){
             for (int i = 0; i < batchSize; ++i) {
-                float jitter_x = ((rand() % 100) / 100.0f - 0.5f) / width;  // ~ ±0.5 px jitter
+                float jitter_x = ((rand() % 100) / 100.0f - 0.5f) / width;  // ±0.5 px jitter
                 float jitter_y = ((rand() % 100) / 100.0f - 0.5f) / height;
 
                 float fx = std::min(std::max(h_positions[i * 2 + 0] + jitter_x, 0.0f), 1.0f);
