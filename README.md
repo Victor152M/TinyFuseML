@@ -68,6 +68,12 @@ sudo apt install cmake
 # CUDA Toolkit: Download and install from NVIDIA
 ```
 
+### Example — 1080p Default Image Rendering (2.6 seconds)
+
+| Original | Rendered |
+|----------|----------|
+| ![Original Shop](images/cassette_shop_low_res.png) | ![Rendered Shop](images/cassette_shop_inferenece_low_res.png) |
+
 ## Running with Custom Parameters
 
 After building, you can run the program manually with optional arguments:

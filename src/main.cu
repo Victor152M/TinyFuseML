@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
         << "batch_size=" << batchSize << ", "
         << "input_size=" << inputSize << ", "
         << "hidden_size1=" << hiddenSize1 << ", "
-        << "hidden_si2e=" << hiddenSize2 << ", "
+        << "hidden_size2=" << hiddenSize2 << ", "
         << "output_size=" << outputSize << std::endl;
 
     std::vector<unsigned char> output_image(width * height * 3);
