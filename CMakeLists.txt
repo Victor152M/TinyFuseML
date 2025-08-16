@@ -7,12 +7,12 @@ find_package(OpenCV REQUIRED)
 
 add_compile_definitions(PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
-# Set the host compiler before enabling CUDA
-set(CMAKE_C_COMPILER /usr/bin/gcc-11)
-set(CMAKE_CXX_COMPILER /usr/bin/g++-11)
-set(CMAKE_CUDA_HOST_COMPILER /usr/bin/g++-11)
-
 project(tinyfuseml LANGUAGES CXX CUDA)
+
+# Require GCC 11 or newer for CUDA 11.8 compatibility
+if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 11)
+    message(FATAL_ERROR "GCC/G++ 11 or newer is required")
+endif()
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CUDA_STANDARD 14)

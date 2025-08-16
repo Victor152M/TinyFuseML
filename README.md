@@ -1,2 +1,106 @@
-nsys profile -t cuda,nvtx,osrt --stats=true -o my_app_timeline_report ./cuda_project 
-(in the build folder)
+# TinyFuseML
+
+A neural redering project inspired by Instant NGP, capable of training and rendering ultra-high resolution images using CUDA kernels.
+
+
+## Example — 470 Megapixel Rendering
+
+The following is a comparison of the original 20000 × 23466 (~470 megapixel)  
+"Girl With Pearl" image and the neural rendering result.
+| Original | Rendered |
+|----------|----------|
+| ![Original](images/girl_with_pearl_original.png) | ![Rendered](images/girl_with_pearl_inference.png) |
+| ![Original Close](images/girl_with_pearl_close_original.png) | ![Rendered Close](images/girl_with_pearl_close_inference.png) 
+
+
+### Features
+
+- Train 470 megapixel images in ~7 minutes on a GTX 1080
+- Train 1080p images in under 3 seconds
+- Multiresolution hash grid encoding 
+- Simple command-line interface for custom images, training steps, and batch loss
+- Automatic example run via the build script
+
+## Getting Started 
+
+### Build and Run
+
+Build the project and run a training example:
+
+```bash
+./build.sh
+```
+
+The trained image will be inside the **build** folder as **Full_Inference.png**
+
+Make sure you have:
+
+- CUDA Toolkit 11.8 or newer
+- GCC/G++ 11 (set in CMakeLists.txt)
+- OpenCV installed
+- CMake 3.18 or newer
+
+### Requirements
+
+- **CUDA Toolkit 11.8+**  
+  Required for GPU-accelerated training and rendering. Tested with CUDA 11.8.
+- **NVIDIA GPU with Compute Capability ≥ 6.1**  
+  GTX 1080 or newer recommended.
+- **GCC/G++ 11 or newer**  
+  Required for compiling CUDA 11.8 host code.
+- **OpenCV**  
+  Used for image loading and saving.
+- **CMake 3.18+**  
+  Required for modern CUDA CMake integration.
+
+### Ubuntu Example Install
+
+```bash
+# Install GCC/G++ 11
+sudo apt install gcc-11 g++-11
+
+# Install OpenCV
+sudo apt install libopencv-dev
+
+# Install CMake
+sudo apt install cmake
+
+# CUDA Toolkit: Download and install from NVIDIA
+```
+
+## Running with Custom Parameters
+
+After building, you can run the program manually with optional arguments:
+```bash
+./tinyfuseml [image_path] [max_training_steps] [batch_loss_threshold]
+```
+- **image_path** (optional) - path to the input image, default is **images/cassette_shop_fullhd.png**
+- **max_training_steps** (optional) - maximum number of training steps, default is **1000**
+- **batch_loss_threshold** (optional) - batch loss threshold for stopping, default is **0.0005**
+
+Example: 
+```bash
+./tinyfuseml images/my_image.png 500 0.0003
+```
+
+### Help
+
+```bash
+./tinyfuseml -h
+```
+Displays usage information
+
+## Performance Notes
+
+- Built and tested on the GTX 1080
+- 470+ megapixel images can be trained and rendered in ~7 minutes, tested on the 20000 x 23466 "Girl With Pearl" image **http://profoundism.com/free_licenses.html**
+- For higher resolution image training, increase **N_LEVELS** and **LOG2_HASHMAP_SIZE** from the **hash_encoding.cuh** file 
+- In case of numerical instability, try lowering the MLP learning rate from **main.cu**
+- For further quality improvements, increasing **hiddenSize1** and **hiddenSize2** (MLP hidden layers) to 32 may help, but **threadsPerBlock** might need to be reduced in **main.cu**
+
+## Aknowledgements
+
+- Inspired by [Instant-NGP](https://nvlabs.github.io/instant-ngp/)
+- "Girl With Pearl" image provided under free license from [Profoundism](http://profoundism.com/free_licenses.html)
+
+

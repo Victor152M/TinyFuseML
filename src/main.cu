@@ -21,13 +21,37 @@ int main(int argc, char** argv) {
     std::vector<float> img_data;
     int width, height;
 
+    // Default values
     std::string imagePath;
+    imagePath = std::string(PROJECT_SOURCE_DIR) + "/images/cassette_shop_fullhd.png";
+    int trainingStepsMaximum = 1000;
+    float batchLossThreshold = 0.0005f;
+
     if (argc >= 2) {
-        imagePath = std::string(PROJECT_SOURCE_DIR) + argv[1];
-    } else {
-        imagePath = std::string(PROJECT_SOURCE_DIR) + "/training_example/cassette_shop_fullhd.png";
+        imagePath = std::string(PROJECT_SOURCE_DIR) + "/" + argv[1];
     }
-    std::cout << "Using image path: " << imagePath << "\n";
+
+    if (argc >= 3) {
+        trainingStepsMaximum = std::atoi(argv[2]);
+    }
+
+    if (argc >= 4) {
+        batchLossThreshold = std::atof(argv[3]);
+    }
+
+    // If the user provides "-h" or "--help"
+    if (argc > 1 && (std::string(argv[1]) == "-h" || std::string(argv[1]) == "--help")) {
+        std::cout << "Usage: " << argv[0] << " [image_path] [max_training_steps] [batch_loss_threshold]\n"
+                  << "  image_path (optional) : Path to input image, default is 'images/cassette_shop_fullhd.png'\n"
+                  << "  max_training_steps (optional) : Maximum training steps, default 1000\n"
+                  << "  batch_loss_threshold (optional) : Batch loss threshold for stopping, default 0.0005\n";
+        return 0;
+    }
+
+    // Print what will be used
+    std::cout << "Using image: " << imagePath << "\n"
+              << "Max training steps: " << trainingStepsMaximum << "\n"
+              << "Max batch loss: " << batchLossThreshold << "\n";
 
     loadImage(imagePath, img_data, width, height);
     std::cout << "Image loaded: " << width << "x" << height << std::endl;
@@ -79,7 +103,7 @@ int main(int argc, char** argv) {
 
     float h_target[batchSize * outputSize];
 
-    float learningRate = 0.0002f;
+    float learningRate = 0.00021f;
 
     float *d_weightsLayer1, *d_weightsLayer2, *d_biasLayer1, *d_biasLayer2, *d_output, *d_target;
     float *d_weightsLayer3, *d_biasLayer3, *d_positions = nullptr;
@@ -129,7 +153,7 @@ int main(int argc, char** argv) {
 
     auto startTime = std::chrono::high_resolution_clock::now();
 
-    bool enablePreview = false;
+    bool enablePreview = false; // preview during training - slows training
 
     int width_minus_1 = width - 1;
     int height_minus_1 = height - 1;
@@ -140,7 +164,7 @@ int main(int argc, char** argv) {
     const int fullPassStartStep = 10;
     int totalPixels = width * height;
 
-    for (int step = 0; step <= 2000; step++) {
+    for (int step = 0; step <= trainingStepsMaximum; step++) {
         for (int i = 0; i < batchSize; i++) {
             int px = rand() % width;
             int py = rand() % height;
@@ -202,7 +226,7 @@ int main(int argc, char** argv) {
 
             if (step % 1 == 0) {
                 cv::Mat display;
-                cv::resize(preview, display, cv::Size(), 1, 1, cv::INTER_NEAREST);
+                cv::resize(preview, display, cv::Size(), 0.03, 0.03, cv::INTER_NEAREST);
                 cv::imshow("Live Training", display);
                 cv::waitKey(1);
             }
@@ -226,20 +250,20 @@ int main(int argc, char** argv) {
             std::cout << "Step " << step << ", Loss: " << batchLoss << std::endl;
 
 
-            if (batchLoss < 0.0005f){
-                auto endTime = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<double> totalElapsed = endTime - startTime;
-                std::cout << "Training completed in " << totalElapsed.count() << " seconds.\n";
+            if (batchLoss < batchLossThreshold){
                 break;
             }
 
             learningRate = std::max(learningRate, 1e-4f);
         }
 
-        if (step % 5 == 0){
+        if (step % 50 == 0){
             learningRate *= 0.9;
         }
     }
+    auto endTime = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> totalElapsed = endTime - startTime;
+    std::cout << "Training completed in " << totalElapsed.count() << " seconds.\n";
 
 
     // Inference
