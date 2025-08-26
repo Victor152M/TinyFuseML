@@ -1,6 +1,6 @@
 # TinyFuseML
 
-A neural redering project inspired by Instant NGP, capable of training and rendering ultra-high resolution images using CUDA kernels.
+A neural redering project capable of training and rendering ultra-high resolution images using CUDA kernels.
 
 
 ## Example — 470 Megapixel Rendering
