@@ -47,11 +47,8 @@ Make sure you have:
 - **NVIDIA GPU with Compute Capability ≥ 6.1**  
   GTX 1080 or newer recommended.
 - **GCC/G++ 11 or newer**  
-  Required for compiling CUDA 11.8 host code.
-- **OpenCV**  
-  Used for image loading and saving.
+- **OpenCV**
 - **CMake 3.18+**  
-  Required for modern CUDA CMake integration.
 
 ### Ubuntu Example Install
 
