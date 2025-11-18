@@ -1,9 +1,9 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.20)
 
-set(CUDAToolkit_ROOT "/usr/local/cuda-11.8")
 
 find_package(CUDAToolkit REQUIRED)
 find_package(OpenCV REQUIRED)
+
 
 add_compile_definitions(PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
@@ -17,8 +17,11 @@ endif()
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CUDA_STANDARD 14)
 
-# Specify your GPU architecture (GTX 1080 = sm_61)
-set(CMAKE_CUDA_ARCHITECTURES 61)
+if(NOT CMAKE_CUDA_ARCHITECTURES)
+    set(DEFAULT_ARCHS "61;70;75;80;86;89;90;90-virtual")
+    set(CMAKE_CUDA_ARCHITECTURES "${DEFAULT_ARCHS}" CACHE STRING "CUDA architecture list (Compute Capability)")
+    message(STATUS "Using default CUDA architectures: ${CMAKE_CUDA_ARCHITECTURES}")
+endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS_WRITE_INCLUDE_PATHS_DIRECTLY TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

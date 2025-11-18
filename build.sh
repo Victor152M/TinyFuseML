@@ -6,7 +6,7 @@ BUILD_DIR=build
 PROJECT_ROOT=$(pwd)
 
 echo "Cleaning previous build..."
-rm -rf $BUILD_DIR
+sudo rm -rf $BUILD_DIR
 
 echo "Creating build directory..."
 mkdir $BUILD_DIR
