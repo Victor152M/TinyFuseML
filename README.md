@@ -86,6 +86,8 @@ Example:
 ./tinyfuseml images/my_image.png 500 0.0003
 ```
 
+The trained image will be inside the build folder as Full_Inference.png
+
 ### Help
 
 ```bash
