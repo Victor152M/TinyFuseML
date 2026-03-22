@@ -65,9 +65,9 @@ sudo apt install cmake
 # CUDA Toolkit: Download and install from NVIDIA
 ```
 
-### Example — 1080p Default Image Rendering (2.6 seconds)
+### Example — 1080p Default Image Training (2.6 seconds)
 
-| Original | Rendered |
+| Original | Training Result |
 |----------|----------|
 | ![Original Shop](images/cassette_shop_low_res.png) | ![Rendered Shop](images/cassette_shop_inferenece_low_res.png) |
 
