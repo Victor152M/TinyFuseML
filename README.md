@@ -2,7 +2,7 @@
 
 A neural rendering framework capable of training and rendering ultra-high-resolution images using a trainable multiresolution hash encoding.
 
-It also supports SDF volumetric rendering with a built-in volumetric renderer for visualizing 3D SDFs. Currently, custom SDF input is not yet supported.
+It also supports 3D SDF training and rendering, with a built-in volumetric renderer for visualizing SDFs. Currently, custom SDF input is not yet supported.
 
 
 ### Example — 1080p Default Image Training (2.6 seconds)
