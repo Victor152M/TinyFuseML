@@ -25,7 +25,7 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 
  Training Result |
 |----------|
-| (images/sdf_render_21s.png) |
+| ![3D_SDF](images/sdf_render_21s.png) |
 
 
 ### Features
