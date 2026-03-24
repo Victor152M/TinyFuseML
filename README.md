@@ -31,7 +31,7 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 - basic volumteric renderer for visualizing 3D SDFs
 - Automatic example run via the build script
 
-### Example — 3D SDF Training (21.2 seconds)
+### Example — Experimental 3D SDF Training (21.2 seconds)
 
  Training Result |
 |----------|
