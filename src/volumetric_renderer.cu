@@ -158,7 +158,7 @@ __device__ bool RayMarch(const Vec3& ro, const Vec3& rd, float time,
         if (fabsf(dist) < SURF_EPS) 
         {
             hitPos = p;
-            hitColor = Vec3(0.7f, 0.72f, 0.75f);
+            hitColor = Vec3(0.75f, 0.75f, 0.85f);
             return true;
         }
 
