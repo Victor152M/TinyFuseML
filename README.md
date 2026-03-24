@@ -21,6 +21,13 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 | ![Original Close](images/girl_with_pearl_close_original.png) | ![Rendered Close](images/girl_with_pearl_close_inference.png) 
 
 
+### Example — 3D SDF Training (21.2 seconds)
+
+ Training Result |
+|----------|
+| (images/sdf_render_21s.png) |
+
+
 ### Features
 
 - Train 470 megapixel images in ~7 minutes on a GTX 1080
@@ -98,7 +105,7 @@ Example:
 
 ```bash
 # Train in SDF mode (sphere example)
-./tinyfuseml --mode sdf --steps 1000
+./tinyfuseml --mode sdf --steps 400
 ```
 
 ### Help
