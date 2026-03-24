@@ -3,16 +3,17 @@
 #include <cuda_runtime.h>
 
 // Hash table hyperparameters
-constexpr int N_LEVELS = 9; // L
-constexpr int FEATURES_PER_LEVEL = 2; // F
-constexpr int BASE_RES = 256;
-constexpr int LOG2_HASHMAP_SIZE = 21; // T
-constexpr float SCALE_FACTOR = 1.7f;
+constexpr int N_LEVELS = 16; // L
+constexpr int FEATURES_PER_LEVEL = 4; // F
+constexpr int LOG2_HASHMAP_SIZE = 24; // T
+constexpr float SCALE_FACTOR = 1.5f;
 constexpr int HASHMAP_SIZE = 1 << LOG2_HASHMAP_SIZE;
+// baseHashResolution - declared in main.cpp
 
 constexpr int HASH_ENCODED_SIZE = N_LEVELS * FEATURES_PER_LEVEL;
 
 
-void allocateHashTable(float** deviceHashTable);
+void AllocateHashTable(float** deviceHashTable);
 
-__device__ void hashEncode(float x, float y, float* output, float* hashTable, int* hashIndices);
+__device__ void HashEncode(float x, float y, float* output, float* hashTable, int* hashIndices, int baseHashResolution);
+__device__ void HashEncode3D(float x, float y, float z, float* output, float* hashTable, int* hashIndices, int baseHashResolution);

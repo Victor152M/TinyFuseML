@@ -1,13 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
 
+project(tinyfuseml LANGUAGES CXX CUDA)
 
 find_package(CUDAToolkit REQUIRED)
 find_package(OpenCV REQUIRED)
 
-
 add_compile_definitions(PROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 
-project(tinyfuseml LANGUAGES CXX CUDA)
 
 # Require GCC 11 or newer for CUDA 11.8 compatibility
 if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 11)
@@ -31,8 +30,10 @@ add_executable(tinyfuseml
     src/mlp_kernel.cu
     src/image_loader.cpp
     src/image_writer.cpp
-    src/fourier_encoding.cpp
     src/hash_encoding.cu
+    src/volumetric_renderer.cu
+    src/trainer.cu
+    src/cli.cpp
 )
 
 target_include_directories(tinyfuseml PRIVATE
