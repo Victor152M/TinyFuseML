@@ -15,7 +15,7 @@ It also supports SDF volumetric rendering with a built-in volumetric renderer fo
 
 The following is a comparison of the original 20000 × 23466 (~470 megapixel)  
 "Girl With Pearl" image and the neural rendering result.
-| Original | Rendered |
+| Original | Training Result |
 |----------|----------|
 | ![Original](images/girl_with_pearl_original.png) | ![Rendered](images/girl_with_pearl_inference.png) |
 | ![Original Close](images/girl_with_pearl_close_original.png) | ![Rendered Close](images/girl_with_pearl_close_inference.png) 
@@ -25,8 +25,10 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 
 - Train 470 megapixel images in ~7 minutes on a GTX 1080
 - Train 1080p images in under 3 seconds
-- Multiresolution hash grid encoding 
-- Simple command-line interface for custom images, training steps, and batch loss
+- Trainable multiresolution hash grid encoding
+- Custom command line parameters
+- 3D SDFs rendering example (no custom input yet)
+- basic volumteric renderer for visualizing 3D SDFs
 - Automatic example run via the build script
 
 ## Getting Started 
