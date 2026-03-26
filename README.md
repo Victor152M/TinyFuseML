@@ -21,13 +21,6 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 | ![Original Close](images/girl_with_pearl_close_original.png) | ![Rendered Close](images/girl_with_pearl_close_inference.png) 
 
 
-### Example — 3D SDF Training (21.2 seconds)
-
- Training Result |
-|----------|
-| ![3D_SDF](images/sdf_render_21s.png) |
-
-
 ### Features
 
 - Train 470 megapixel images in ~7 minutes on a GTX 1080
@@ -37,6 +30,12 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 - 3D SDFs rendering example (no custom input yet)
 - basic volumteric renderer for visualizing 3D SDFs
 - Automatic example run via the build script
+
+### Example — Experimental 3D SDF Training (21.2 seconds)
+
+ Training Result |
+|----------|
+| ![3D_SDF](images/sdf_render_21s.png) |
 
 ## Getting Started 
 
