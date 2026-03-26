@@ -36,6 +36,9 @@ int main(int argc, char** argv)
         trainer.SetImage(imageData, imageWidth, imageHeight);
     }
 
+    int renderW = (options.renderW > 0) ? options.renderW : imageWidth;
+    int renderH = (options.renderH > 0) ? options.renderW : imageHeight;
+
     std::cout << "Starting training ... \n";
 
     auto startTime = std::chrono::high_resolution_clock::now();
@@ -48,7 +51,7 @@ int main(int argc, char** argv)
     std::cout<< "Training completed in "
              << elapsed.count() << " seconds \n";
              
-    trainer.Render(options.renderW, options.renderH, options.baseHashResolution);
+    trainer.Render(renderW, renderH, options.baseHashResolution);
 
     cudaDeviceReset();
     return 0;

@@ -10,8 +10,8 @@ struct CLIOptions
     int trainingStepsMaximum = 2000;
     float batchLossThreshold = 0.005f;
 
-    int renderW = 1920;
-    int renderH = 1080;
+    int renderW = 0;
+    int renderH = 0;
 
     int baseHashResolution = 256;
 
