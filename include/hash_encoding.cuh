@@ -5,7 +5,7 @@
 // Hash table hyperparameters
 constexpr int N_LEVELS = 12; // L
 constexpr int FEATURES_PER_LEVEL = 2; // F
-constexpr int LOG2_HASHMAP_SIZE = 21; // T
+constexpr int LOG2_HASHMAP_SIZE = 2; // T
 constexpr float SCALE_FACTOR = 1.5f;
 constexpr int HASHMAP_SIZE = 1 << LOG2_HASHMAP_SIZE;
 // baseHashResolution - declared in main.cpp
