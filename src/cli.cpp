@@ -24,7 +24,7 @@ CLIOptions ParseArguments(int argc, char** argv)
     // default image path
     options.imagePath = std::string(PROJECT_SOURCE_DIR) + "/images/cassette_shop_fullhd.png";
     // default sdf data path
-    options.sdfDataPath = std::string(PROJECT_SOURCE_DIR) + "/sdfs/bunny_samples.bin";
+    options.sdfDataPath = std::string(PROJECT_SOURCE_DIR) + "/sdfs/greek_column.bin";
 
     for (int i = 1; i < argc; i++)
     {
@@ -42,9 +42,9 @@ CLIOptions ParseArguments(int argc, char** argv)
             if (mode == "sdf")
             {
                 options.mode = ETrainingMode::SDF;
-                options.baseHashResolution = 4;
-                options.batchLossThreshold = 0.00003;
-                options.hashLearningRate = 0.15;
+                options.baseHashResolution = 3;
+                options.batchLossThreshold = 0.000005;
+                options.hashLearningRate = 0.05;
                 options.renderW = 1920;
                 options.renderH = 1080;
             }
