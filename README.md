@@ -11,6 +11,12 @@ It also supports 3D SDF training and rendering, with a built-in volumetric rende
 |----------|----------|
 | ![Original Shop](images/cassette_shop_low_res.png) | ![Rendered Shop](images/cassette_shop_inferenece_low_res.png) |
 
+### Example — 3D SDF Training Results
+
+| Armadillo | Greek Column |
+|----------|----------|
+| ![3D_SDF](images/armadillo_sdf.png) | ![3D_SDF_Greek](images/greek_column_sdf.png) |
+
 ## Example — 470 Megapixel Rendering
 
 The following is a comparison of the original 20000 × 23466 (~470 megapixel)  
@@ -31,11 +37,6 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 - Trainable multiresolution hash grid encoding
 - Custom command line parameters
 
-### Example — 3D SDF Training Results
-
-| Armadillo | Greek Column |
-|----------|----------|
-| ![3D_SDF](images/armadillo_sdf.png) | ![3D_SDF_Greek](images/greek_column_sdf.png) |
 
 ## Getting Started 
 
