@@ -31,12 +31,11 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 - Trainable multiresolution hash grid encoding
 - Custom command line parameters
 
-### Example — 3D SDF Training
+### Example — 3D SDF Training Results
 
- Training Results |
-|----------|
-| ![3D_SDF](images/armadillo_sdf.png) |
-![3D_SDF](images/greek_column_sdf.png) |
+| Armadillo | Greek Column |
+|----------|----------|
+| ![3D_SDF](images/armadillo_sdf.png) | ![3D_SDF](images/greek_column_sdf.png) |
 
 ## Getting Started 
 
