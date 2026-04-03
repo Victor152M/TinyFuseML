@@ -35,7 +35,7 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 
 | Armadillo | Greek Column |
 |----------|----------|
-| ![3D_SDF](images/armadillo_sdf.png) | ![3D_SDF](images/greek_column_sdf.png) |
+| ![3D_SDF](images/armadillo_sdf.png) | ![3D_SDF_Greek](images/greek_column_sdf.png) |
 
 ## Getting Started 
 
