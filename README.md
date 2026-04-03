@@ -25,17 +25,17 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 
 - Train 470 megapixel images in ~7 minutes on a GTX 1080
 - Train 1080p images in under 3 seconds
+- 3D SDFs rendering example
+- basic volumteric renderer for visualizing 3D SDFs
+- Automatic examples run via the build script
 - Trainable multiresolution hash grid encoding
 - Custom command line parameters
-- 3D SDFs rendering example (no custom input yet)
-- basic volumteric renderer for visualizing 3D SDFs
-- Automatic example run via the build script
 
-### Example — Experimental 3D SDF Training (21.2 seconds)
+### Example — 3D SDF Training
 
- Training Result |
+ Training Results |
 |----------|
-| ![3D_SDF](images/sdf_render_21s.png) |
+| ![3D_SDF](images/armadillo_sdf.png) | | ![3D_SDF](images/greek_column_sdf.png) |
 
 ## Getting Started 
 
@@ -103,7 +103,7 @@ Example:
 ```
 
 ```bash
-# Train in SDF mode (sphere example)
+# Train in SDF mode (greek column example)
 ./tinyfuseml --mode sdf --steps 400
 ```
 
