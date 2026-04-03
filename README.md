@@ -86,7 +86,7 @@ sudo apt install cmake
 
 After building, you can run the program manually with optional arguments:
 ```bash
-./tinyfuseml [--mode image|sdf] [--image <path>] [--steps <int>] [--loss <float>] [--res <width> <height>] [--hashres <int>] [--lr <float>] [--hashlr <float>] [--help]
+./tinyfuseml [--mode image|sdf] [--image <path>] [--sdfdata <path>] [--steps <int>] [--loss <float>] [--res <width> <height>] [--hashres <int>] [--lr <float>] [--hashlr <float>] [--help]
 ```
 - **image** - path to the input image, default is **/images/cassette_shop_fullhd.png**
 - **sdfdata** - path to the sdf data (.bin), default is **/sdfs/greek_column.bin**
@@ -106,7 +106,7 @@ Example:
 
 ```bash
 # Train in SDF mode (greek column example)
-./tinyfuseml --mode sdf --steps 400
+./tinyfuseml --mode sdf
 ```
 
 ### Help
