@@ -2,7 +2,7 @@
 
 A neural rendering framework capable of training and rendering ultra-high-resolution images using a trainable multiresolution hash encoding.
 
-It also supports 3D SDF training and rendering, with a built-in volumetric renderer for visualizing SDFs. Currently, custom SDF input is not yet supported.
+It also supports 3D SDF training and rendering, with a built-in volumetric renderer for visualizing SDFs.
 
 
 ### Example — 1080p Default Image Training (2.6 seconds)
@@ -88,7 +88,8 @@ After building, you can run the program manually with optional arguments:
 ```bash
 ./tinyfuseml [--mode image|sdf] [--image <path>] [--steps <int>] [--loss <float>] [--res <width> <height>] [--hashres <int>] [--lr <float>] [--hashlr <float>] [--help]
 ```
-- **image** - path to the input image, default is **images/cassette_shop_fullhd.png**
+- **image** - path to the input image, default is **/images/cassette_shop_fullhd.png**
+- **sdfdata** - path to the sdf data (.bin), default is **/sdfs/greek_column.bin**
 - **steps** - maximum number of training steps
 - **loss** - batch loss threshold for stopping
 - **res** - output resolution
