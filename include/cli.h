@@ -6,6 +6,7 @@ struct CLIOptions
     ETrainingMode mode = ETrainingMode::Image;
 
     std::string imagePath;
+    std::string sdfDataPath;
 
     int trainingStepsMaximum = 2000;
     float batchLossThreshold = 0.005f;
@@ -15,8 +16,8 @@ struct CLIOptions
 
     int baseHashResolution = 256;
 
-    float learningRate = 0.0002f;
-    float hashLearningRate = 0.4f;
+    float learningRate = 0.00021f;
+    float hashLearningRate = 0.35f;
 };
 
 CLIOptions ParseArguments(int argc, char** argv);

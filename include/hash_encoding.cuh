@@ -3,10 +3,10 @@
 #include <cuda_runtime.h>
 
 // Hash table hyperparameters
-constexpr int N_LEVELS = 12; // L
-constexpr int FEATURES_PER_LEVEL = 2; // F
+constexpr int N_LEVELS = 24; // L
+constexpr int FEATURES_PER_LEVEL = 6; // F
 constexpr int LOG2_HASHMAP_SIZE = 22; // T
-constexpr float SCALE_FACTOR = 1.5f;
+constexpr float SCALE_FACTOR = 1.2f;
 constexpr int HASHMAP_SIZE = 1 << LOG2_HASHMAP_SIZE;
 // baseHashResolution - declared in main.cpp
 

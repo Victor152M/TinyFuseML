@@ -7,6 +7,10 @@
 #include <opencv2/opencv.hpp>
 #include <image_writer.h>
 
+#ifndef PI
+#define PI 3.14159265358f
+#endif
+
 // -----------------------------------------
 // Constructor
 //
@@ -37,6 +41,21 @@ void CTrainer::InitRandom(float* array, int size, float scale)
     {
         array[i] = static_cast<float>(rand()) / RAND_MAX * scale;
     }
+}
+
+// -----------------------------------------
+// Setters
+//
+void CTrainer::SetSDFDataset(const std::vector<SDFSample>& dataset)
+{
+    m_sdfDataset = dataset;
+}
+
+void CTrainer::SetImage(const std::vector<float>& data, int width, int height)
+{
+    m_imageData = data;
+    m_imageWidth = width;
+    m_imageHeight = height;
 }
 
 // -----------------------------------------
@@ -134,19 +153,12 @@ void CTrainer::Train(int maxSteps, float batchLossThreshold, int baseHashResolut
     for (int step = 0; step <= maxSteps; step++)
     {
         // Sample depending on mode
-        SampleBatch(); // fills m_hPositions (and m_hTargets for image training)
+        SampleBatch(step); // fills m_hPositions (and m_hTargets for image training)
 
         if (m_trainingMode == ETrainingMode::SDF)
         {
             cudaMemcpy(m_dPositions, m_hPositions.data(), m_batchSize * 3 * sizeof(float), cudaMemcpyHostToDevice);
-
-            // Generate SDF targets on GPU
-            GenerateSDFTargetsKernel<<<numBlocks, threadsPerBlock>>>(
-                m_dPositions,
-                m_dTargets,
-                m_batchSize,
-                0.0f
-            );
+            cudaMemcpy(m_dTargets, m_hTargets.data(), m_batchSize * sizeof(float), cudaMemcpyHostToDevice);
         }
         else if (m_trainingMode == ETrainingMode::Image)
         {
@@ -203,37 +215,40 @@ void CTrainer::Render(int width, int height, int baseHashResolution)
 {
     if (m_trainingMode == ETrainingMode::SDF)
     {
-        std::vector<unsigned char> outputImage(width * height * 4);
-        unsigned char* d_outputRGBA;
-        cudaMalloc(&d_outputRGBA, width * height * 4 * sizeof(unsigned char));
+        float camAngles[3] = {PI/2, PI, 5*PI/3 };
 
-        dim3 threadsPerBlock2D(16, 16);
-        dim3 numBlocks2D(
-        (width + threadsPerBlock2D.x - 1) / threadsPerBlock2D.x,
-        (height + threadsPerBlock2D.y - 1) / threadsPerBlock2D.y
-        );
+        for (int view = 0; view < 3; ++view)
+        {
+            float time = camAngles[view];
+            std::vector<unsigned char> outputImage(width * height * 4);
+            unsigned char* d_outputRGBA;
+            cudaMalloc(&d_outputRGBA, width * height * 4 * sizeof(unsigned char));
 
-        float time = 0.0f;
+            dim3 threadsPerBlock2D(16, 16);
+            dim3 numBlocks2D(
+                (width + threadsPerBlock2D.x - 1) / threadsPerBlock2D.x,
+                (height + threadsPerBlock2D.y - 1) / threadsPerBlock2D.y
+            );
 
-        RenderKernel<<<numBlocks2D, threadsPerBlock2D>>>(
-            d_outputRGBA, width, height, time,
-            m_dWeightsLayer1, m_dBiasLayer1,
-            m_dWeightsLayer2, m_dBiasLayer2,
-            m_dWeightsLayer3, m_dBiasLayer3,
-            m_dHashTable, baseHashResolution
-        );
+            RenderKernel<<<numBlocks2D, threadsPerBlock2D>>>(
+                d_outputRGBA, width, height, time, // time now acts as camera rotation angle
+                m_dWeightsLayer1, m_dBiasLayer1,
+                m_dWeightsLayer2, m_dBiasLayer2,
+                m_dWeightsLayer3, m_dBiasLayer3,
+                m_dHashTable, baseHashResolution
+            );
 
-        cudaError_t err = cudaGetLastError();
-        if (err != cudaSuccess) 
-            printf("Render kernel error: %s\n", cudaGetErrorString(err));
+            cudaDeviceSynchronize();
+            cudaMemcpy(outputImage.data(), d_outputRGBA, width * height * 4 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
-        cudaMemcpy(outputImage.data(), d_outputRGBA, width * height * 4 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+            cv::Mat renderMat(height, width, CV_8UC4, outputImage.data());
+            cv::cvtColor(renderMat, renderMat, cv::COLOR_RGBA2BGR);
+            
+            std::string filename = "sdf_render_view" + std::to_string(view) + ".png";
+            cv::imwrite(filename, renderMat);
 
-        cv::Mat renderMat(height, width, CV_8UC4, outputImage.data());
-        cv::cvtColor(renderMat, renderMat, cv::COLOR_RGBA2BGR); // Optional: convert to BGR
-        cv::imwrite("sdf_render.png", renderMat);
-
-        cudaFree(d_outputRGBA);
+            cudaFree(d_outputRGBA);
+        }
         return;
     }
 
@@ -269,7 +284,7 @@ void CTrainer::Render(int width, int height, int baseHashResolution)
             m_dWeightsLayer2, m_dBiasLayer2,
             m_dWeightsLayer3, m_dBiasLayer3,
             m_dOutput, HASH_ENCODED_SIZE, m_hiddenSize1, m_hiddenSize2,
-            m_outputSize, m_batchSize, m_learningRate, m_hashLearningRate, m_dTargets, false, m_dHashTable, baseHashResolution
+            m_outputSize, m_batchSize, m_learningRate, m_hashLearningRate, nullptr, false, m_dHashTable, baseHashResolution
         );
 
         cudaMemcpy(h_batchOutput.data(), m_dOutput, currentBatch * 3 * sizeof(float), cudaMemcpyDeviceToHost);
@@ -295,50 +310,18 @@ void CTrainer::Render(int width, int height, int baseHashResolution)
 // -----------------------------------------
 // Sample Batch
 //
-void CTrainer::SampleBatch()
+void CTrainer::SampleBatch(int step)
 {
     if (m_trainingMode == ETrainingMode::SDF)
     {
-        const float sphereRadius = 0.3f;
-
-        for (int i = 0; i < m_batchSize; i++) 
+        for (int i = 0; i < m_batchSize; i++)
         {
-            float px, py, pz;
-            float u = (float)rand() / RAND_MAX;
+            int idx = (step * m_batchSize + i) % m_sdfDataset.size();
+            m_hPositions[i*3 + 0] = m_sdfDataset[idx].x;
+            m_hPositions[i*3 + 1] = m_sdfDataset[idx].y;
+            m_hPositions[i*3 + 2] = m_sdfDataset[idx].z;
 
-            if (u < 0.4f) {
-                // exact surface samples
-                float theta = ((float)rand() / RAND_MAX) * 2.0f * M_PI;
-                float phi   = acosf(2.0f * ((float)rand() / RAND_MAX) - 1.0f);
-                float r = sphereRadius;
-
-                px = r * sinf(phi) * cosf(theta);
-                py = r * cosf(phi);
-                pz = r * sinf(phi) * sinf(theta);
-            }
-            else if (u <= 0.7f) {
-                // near surface
-                float theta = ((float)rand() / RAND_MAX) * 2.0f * M_PI;
-                float phi   = acosf(2.0f * ((float)rand() / RAND_MAX) - 1.0f);
-
-                float shellThickness = 0.1f;
-                float offset = (((float)rand() / RAND_MAX) - 0.5f) * shellThickness;
-                float r = sphereRadius + offset;
-
-                px = r * sinf(phi) * cosf(theta);
-                py = r * cosf(phi);
-                pz = r * sinf(phi) * sinf(theta);
-            }
-            else {
-                // uniform cube
-                px = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
-                py = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
-                pz = ((float)rand() / RAND_MAX) * 2.0f - 1.0f;
-            }
-
-            m_hPositions[i*3+0] = px;
-            m_hPositions[i*3+1] = py;
-            m_hPositions[i*3+2] = pz;
+            m_hTargets[i] = m_sdfDataset[idx].sdf;
         }
     } else
     {
@@ -360,6 +343,22 @@ void CTrainer::SampleBatch()
             m_hTargets[i * m_outputSize + 1] = m_imageData[idx + 1];
             m_hTargets[i * m_outputSize + 2] = m_imageData[idx + 2];
         };
+    }
+}
+
+// -----------------------------------------
+// Sample SDF Batch From File 
+//
+void CTrainer::SampleSDFBatchFromFile(const std::vector<SDFSample>& dataset)
+{
+    for (int i = 0; i < m_batchSize; i++)
+    {
+        int idx = rand() % dataset.size();
+        m_hPositions[i*3 + 0] = dataset[idx].x;
+        m_hPositions[i*3 + 1] = dataset[idx].y;
+        m_hPositions[i*3 + 2] = dataset[idx].z;
+
+        m_hTargets[i] = dataset[idx].sdf;
     }
 }
 
@@ -397,14 +396,4 @@ void CTrainer::LaunchKernel(int numBlocks, int threadsPerBlock, int baseHashReso
                 m_dOutput, HASH_ENCODED_SIZE, m_hiddenSize1, m_hiddenSize2,
                 m_outputSize, m_batchSize, m_learningRate, m_hashLearningRate, m_dTargets, true, m_dHashTable, baseHashResolution);
     }
-}
-
-// -----------------------------------------
-// Set image for image training
-//
-void CTrainer::SetImage(const std::vector<float>& data, int width, int height)
-{
-    m_imageData = data;
-    m_imageWidth = width;
-    m_imageHeight = height;
 }

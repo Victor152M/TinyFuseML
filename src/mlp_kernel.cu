@@ -322,7 +322,8 @@ __global__ void MLPSDFKernel(
     for (int level = 0; level < N_LEVELS; ++level) {
         float base_lr = hashLearningRate;
         float base = 1.2f;
-        float hash_lr = base_lr / powf(base, level);
+        // float hash_lr = base_lr / powf(base, level);
+        float hash_lr = hashLearningRate;
         int resolution = static_cast<int>(baseHashResolution * powf(SCALE_FACTOR, level));
 
         float fx = x * resolution;

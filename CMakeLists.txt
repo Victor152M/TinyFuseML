@@ -34,6 +34,7 @@ add_executable(tinyfuseml
     src/volumetric_renderer.cu
     src/trainer.cu
     src/cli.cpp
+    src/sdf_loader.cpp
 )
 
 target_include_directories(tinyfuseml PRIVATE

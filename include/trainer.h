@@ -1,6 +1,6 @@
 #pragma once
 #include <vector>
-
+#include <sdf_loader.h>
 
 enum class ETrainingMode
 {
@@ -24,6 +24,7 @@ public:
     void Render(int width, int height, int baseHashResolution);
 
     void SetImage(const std::vector<float>& data, int width, int height);
+    void SetSDFDataset(const std::vector<SDFSample>& dataset);
 
 private:
     ETrainingMode m_trainingMode;
@@ -33,6 +34,10 @@ private:
     std::vector<float> m_imageData;
     int m_imageWidth;
     int m_imageHeight;
+
+    // -----------------------------------------
+	// SDF file data (if SDF mode)
+    std::vector<SDFSample> m_sdfDataset;
 
     // -----------------------------------------
 	// Host Buffers
@@ -73,8 +78,9 @@ private:
     float m_learningRate;
     float m_hashLearningRate;
 
-    void SampleBatch();
+    void SampleBatch(int step);
     void LaunchKernel(int numBlocks, int threadsPerBlock, int baseHashResolution);
+    void SampleSDFBatchFromFile(const std::vector<SDFSample>& dataset);
 
     // -----------------------------------------
 	// Helpers

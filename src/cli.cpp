@@ -7,6 +7,7 @@ void PrintHelp()
     std::cout << "TinyFuseML Usage:\n\n"
               << "--mode [image|sdf]\n"
               << "--image <path>\n"
+              << "--sdfdata <path>\n"
               << "--steps <int>\n"
               << "--loss <float>\n"
               << "--res <width> <height>\n"
@@ -22,6 +23,8 @@ CLIOptions ParseArguments(int argc, char** argv)
 
     // default image path
     options.imagePath = std::string(PROJECT_SOURCE_DIR) + "/images/cassette_shop_fullhd.png";
+    // default sdf data path
+    options.sdfDataPath = std::string(PROJECT_SOURCE_DIR) + "/sdfs/bunny_samples.bin";
 
     for (int i = 1; i < argc; i++)
     {
@@ -42,6 +45,8 @@ CLIOptions ParseArguments(int argc, char** argv)
                 options.baseHashResolution = 4;
                 options.batchLossThreshold = 0.00003;
                 options.hashLearningRate = 0.15;
+                options.renderW = 1920;
+                options.renderH = 1080;
             }
             else
             {
@@ -63,7 +68,7 @@ CLIOptions ParseArguments(int argc, char** argv)
         else if (arg == "--res" && i + 2 < argc)
         {
             options.renderW = std::stoi(argv[++i]);
-            options.renderH = std::stoi(argv[++i]);
+            options.renderH = std::stoi(argv[++i + 1]);
         }
         else if (arg == "--hashres" && i + 1 < argc)
         {
@@ -72,6 +77,10 @@ CLIOptions ParseArguments(int argc, char** argv)
         else if (arg == "--lr" && i + 1 < argc)
         {
             options.learningRate = std::stof(argv[++i]);
+        }
+        else if ((arg == "--sdfdata") && i + 1 < argc)
+        {
+            options.sdfDataPath = argv[++i];
         }
         else if (arg == "--hashlr" && i + 1 < argc)
         {

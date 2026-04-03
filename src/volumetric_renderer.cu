@@ -10,8 +10,8 @@
 
 #define PI 3.14159265359f
 #define MAX_STEPS 1024
-#define SURF_EPS 0.01f
-#define MAX_DIST 1.4f
+#define SURF_EPS 0.001f
+#define MAX_DIST 5.0f
 
 
 __device__ float SDSphere(const Vec3& p, float r) { return p.Length() - r; };
@@ -147,6 +147,10 @@ __device__ bool RayMarch(const Vec3& ro, const Vec3& rd, float time,
     for(int i=0;i<MAX_STEPS;i++)
     {
         Vec3 p = ro + rd*t;
+
+        if (p.Length() > 1.0f)
+            break;
+
         Vec3 colorDummy;
         float dist = SceneSDF(p, time, colorDummy,
                               weightsLayer1, biasLayer1,
@@ -158,7 +162,12 @@ __device__ bool RayMarch(const Vec3& ro, const Vec3& rd, float time,
         if (fabsf(dist) < SURF_EPS) 
         {
             hitPos = p;
-            hitColor = Vec3(0.75f, 0.75f, 0.85f);
+            hitColor = EstimateNormal(p, time,
+                        weightsLayer1, biasLayer1,
+                        weightsLayer2, biasLayer2,
+                        weightsLayer3, biasLayer3,
+                        hashTable, baseHashResolution);
+
             return true;
         }
 
@@ -214,15 +223,15 @@ __global__ void RenderKernel(
 
     // Camera setup
     float aspectRatio = (float)width/(float)height;
-    float fov = 60.0f;
+    float fov = 100.0f;
     float tanFov = tanf(fov*0.5f*PI/180.0f);
     float u = (2.0f*(x+0.5f)/width - 1.0f) * tanFov * aspectRatio;
     float v = (1.0f - 2.0f*(y+0.5f)/height) * tanFov;
 
-    float camDist = 0.7f;  // Changed from 0.9f to 0.7f to not show artifacts from outside the training domain
+    float camDist = 0.95f;  // Changed from 0.9f to 0.7f to not show artifacts from outside the training domain
     float camAngle = time*0.3f;
     Vec3 camPos(cosf(camAngle)*camDist, 0.3f, sinf(camAngle)*camDist);
-    Vec3 target(0,0,0);
+    Vec3 target(0,0.2,0);
     Vec3 forward = (target - camPos).Normalize();
     Vec3 worldUp(0,1,0);
     Vec3 right = forward.Cross(worldUp).Normalize();
@@ -269,12 +278,9 @@ __global__ void RenderKernel(
         outputRGBA[idx+2] = (unsigned char)(litColor.z*255.0f);
         outputRGBA[idx+3] = 255;
     } else {
-        // Sky
-        float t_sky = powf(0.5f*(rayDir.y+1.0f),0.5f);
-        Vec3 sky = Lerp(Vec3(0.6f,0.8f,1.0f), Vec3(0.7f,0.9f,1.0f), t_sky);
-        outputRGBA[idx+0] = (unsigned char)(sky.x*255.0f);
-        outputRGBA[idx+1] = (unsigned char)(sky.y*255.0f);
-        outputRGBA[idx+2] = (unsigned char)(sky.z*255.0f);
+        outputRGBA[idx+0] = 0;
+        outputRGBA[idx+1] = 0;
+        outputRGBA[idx+2] = 0;
         outputRGBA[idx+3] = 255;
     }
 }

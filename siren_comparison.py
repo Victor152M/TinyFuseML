@@ -60,7 +60,7 @@ def save_image(tensor, path):
     img = (tensor * 255).astype(np.uint8)
     Image.fromarray(img).save(path)
 
-def train_siren(image_path, batch_size=65536, target_loss=0.0005, max_iters=20000, lr=1e-4):
+def train_siren(image_path, batch_size=65536, target_loss=0.0005, max_iters=2000, lr=1e-4):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     img = load_image(image_path)  # [3,H,W]

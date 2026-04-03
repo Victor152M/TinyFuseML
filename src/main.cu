@@ -4,6 +4,7 @@
 #include <hash_encoding.cuh>
 #include <image_loader.h>
 #include <cli.h>
+#include <sdf_loader.h>
 
 int main(int argc, char** argv)
 {
@@ -35,9 +36,14 @@ int main(int argc, char** argv)
         LoadImage(options.imagePath, imageData, imageWidth, imageHeight);
         trainer.SetImage(imageData, imageWidth, imageHeight);
     }
+    else
+    {
+        std::vector<SDFSample> sdfDataset = LoadSDFSamples(options.sdfDataPath);
+        trainer.SetSDFDataset(sdfDataset);
+    }
 
     int renderW = (options.renderW > 0) ? options.renderW : imageWidth;
-    int renderH = (options.renderH > 0) ? options.renderW : imageHeight;
+    int renderH = (options.renderH > 0) ? options.renderH : imageHeight;
 
     std::cout << "Starting training ... \n";
 
