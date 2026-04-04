@@ -1,12 +1,15 @@
 #include <string>
 #include <trainer.h>
+#include <iostream>
 
 struct CLIOptions
 {
     ETrainingMode mode = ETrainingMode::Image;
 
-    std::string imagePath;
-    std::string sdfDataPath;
+    // default image path
+    std::string imagePath = std::string(PROJECT_SOURCE_DIR) + "/images/cassette_shop_fullhd.png";
+    // default sdf data path
+    std::string sdfDataPath = std::string(PROJECT_SOURCE_DIR) + "/sdfs/greek_column.bin";
 
     int trainingStepsMaximum = 2000;
     float batchLossThreshold = 0.005f;
