@@ -4,13 +4,6 @@ A neural rendering framework capable of training and rendering ultra-high-resolu
 
 It also supports 3D SDF training and rendering, with a built-in volumetric renderer for visualizing SDFs.
 
-
-### Example — 1080p Default Image Training (2.6 seconds)
-
-| Original | Training Result |
-|----------|----------|
-| ![Original Shop](images/cassette_shop_low_res.png) | ![Rendered Shop](images/cassette_shop_inferenece_low_res.png) |
-
 ### Example — 3D SDF Training Results
 
 | Armadillo | Greek Column |
@@ -26,6 +19,11 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 | ![Original](images/girl_with_pearl_original.png) | ![Rendered](images/girl_with_pearl_inference.png) |
 | ![Original Close](images/girl_with_pearl_close_original.png) | ![Rendered Close](images/girl_with_pearl_close_inference.png) 
 
+### Example — 1080p Default Image Training (2.6 seconds)
+
+| Original | Training Result |
+|----------|----------|
+| ![Original Shop](images/cassette_shop_low_res.png) | ![Rendered Shop](images/cassette_shop_inferenece_low_res.png) |
 
 ### Features
 
@@ -86,7 +84,7 @@ sudo apt install cmake
 
 After building, you can run the program manually with optional arguments:
 ```bash
-./tinyfuseml [--mode image|sdf] [--image <path>] [--steps <int>] [--loss <float>] [--res <width> <height>] [--hashres <int>] [--lr <float>] [--hashlr <float>] [--help]
+./tinyfuseml [--mode image|sdf] [--image <path>] [--sdfdata <path>] [--steps <int>] [--loss <float>] [--res <width> <height>] [--hashres <int>] [--lr <float>] [--hashlr <float>] [--help]
 ```
 - **image** - path to the input image, default is **/images/cassette_shop_fullhd.png**
 - **sdfdata** - path to the sdf data (.bin), default is **/sdfs/greek_column.bin**
@@ -106,7 +104,7 @@ Example:
 
 ```bash
 # Train in SDF mode (greek column example)
-./tinyfuseml --mode sdf --steps 400
+./tinyfuseml --mode sdf
 ```
 
 ### Help
