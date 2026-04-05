@@ -30,7 +30,7 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 - Train 470 megapixel images in ~7 minutes on a GTX 1080
 - Train 1080p images in under 3 seconds
 - 3D SDFs rendering example
-- basic volumteric renderer for visualizing 3D SDFs
+- basic volumetric renderer for visualizing 3D SDFs
 - Automatic examples run via the build script
 - Trainable multiresolution hash grid encoding
 - Custom command line parameters
