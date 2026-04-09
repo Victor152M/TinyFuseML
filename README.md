@@ -7,7 +7,7 @@ It also supports 3D SDF training and rendering, with a built-in volumetric rende
 ### Example — 1080p Default Image Training (2.6 seconds)
 
 | Original | Training Result |
-|----------|----------|
+|----------|----------| 
 | ![Original Shop](images/cassette_shop_low_res.png) | ![Rendered Shop](images/cassette_shop_inferenece_low_res.png) |
 
 ### Example — 3D SDF Training Results
