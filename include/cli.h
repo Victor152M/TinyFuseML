@@ -19,7 +19,7 @@ struct CLIOptions
 
     int baseHashResolution = 256;
 
-    float learningRate = 0.00021f;
+    float learningRate = 0.0002f;
     float hashLearningRate = 0.35f;
 };
 

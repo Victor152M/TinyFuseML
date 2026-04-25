@@ -143,7 +143,7 @@ void CTrainer::FreeBuffers()
 //
 void CTrainer::Train(int maxSteps, float batchLossThreshold, int baseHashResolution)
 {
-    int threadsPerBlock = 120;
+    int threadsPerBlock = 128;
     int numBlocks = (m_batchSize + threadsPerBlock - 1) / threadsPerBlock;
     int sharedMemSize = threadsPerBlock * (m_hiddenSize1 + m_hiddenSize2 + m_outputSize + m_outputSize +
                                             m_hiddenSize2 + m_hiddenSize1) * sizeof(float);
@@ -274,7 +274,7 @@ void CTrainer::Render(int width, int height, int baseHashResolution)
 
         cudaMemcpy(m_dPositions, h_batchPositions.data(), currentBatch * 2 * sizeof(float), cudaMemcpyHostToDevice);
 
-        int threadsPerBlock = 120;
+        int threadsPerBlock = 128;
         int numBlocks = (currentBatch + threadsPerBlock - 1) / threadsPerBlock;
         int sharedMemSize = threadsPerBlock * (m_hiddenSize1 + m_hiddenSize2 + m_outputSize + m_outputSize +
                                             m_hiddenSize2 + m_hiddenSize1) * sizeof(float);

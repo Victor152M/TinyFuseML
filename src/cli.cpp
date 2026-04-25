@@ -61,8 +61,9 @@ CLIOptions ParseArguments(int argc, char** argv)
         }
         else if (arg == "--res" && i + 2 < argc)
         {
-            options.renderW = std::stoi(argv[++i]);
-            options.renderH = std::stoi(argv[++i + 1]);
+            options.renderW = std::stoi(argv[i + 1]);
+            options.renderH = std::stoi(argv[i + 2]);
+            i += 2;
         }
         else if (arg == "--hashres" && i + 1 < argc)
         {
