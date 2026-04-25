@@ -4,6 +4,12 @@ A neural rendering framework capable of training and rendering ultra-high-resolu
 
 It also supports 3D SDF training and rendering, with a built-in volumetric renderer for visualizing SDFs.
 
+### Example — 1080p Default Image Training (2.6 seconds)
+
+| Original | Training Result |
+|----------|----------| 
+| ![Original Shop](images/cassette_shop_low_res.png) | ![Rendered Shop](images/cassette_shop_inferenece_low_res.png) |
+
 ### Example — 3D SDF Training Results
 
 | Armadillo | Greek Column |
@@ -19,18 +25,12 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 | ![Original](images/girl_with_pearl_original.png) | ![Rendered](images/girl_with_pearl_inference.png) |
 | ![Original Close](images/girl_with_pearl_close_original.png) | ![Rendered Close](images/girl_with_pearl_close_inference.png) 
 
-### Example — 1080p Default Image Training (2.6 seconds)
-
-| Original | Training Result |
-|----------|----------|
-| ![Original Shop](images/cassette_shop_low_res.png) | ![Rendered Shop](images/cassette_shop_inferenece_low_res.png) |
-
 ### Features
 
 - Train 470 megapixel images in ~7 minutes on a GTX 1080
 - Train 1080p images in under 3 seconds
 - 3D SDFs rendering example
-- basic volumteric renderer for visualizing 3D SDFs
+- basic volumetric renderer for visualizing 3D SDFs
 - Automatic examples run via the build script
 - Trainable multiresolution hash grid encoding
 - Custom command line parameters
