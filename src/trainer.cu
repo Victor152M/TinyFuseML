@@ -63,20 +63,21 @@ void CTrainer::SetImage(const std::vector<float>& data, int width, int height)
 //
 void CTrainer::InitHostBuffers()
 {
-    m_hWeightsLayer1 = new float[m_inputSize * m_hiddenSize1];
-    m_hWeightsLayer2 = new float[m_hiddenSize1 * m_hiddenSize2];
-    m_hWeightsLayer3 = new float[m_hiddenSize2 * m_outputSize];
-    m_hBiasLayer1 = new float[m_hiddenSize1];
-    m_hBiasLayer2 = new float[m_hiddenSize2];
-    m_hBiasLayer3 = new float[m_outputSize];
+    m_hWeightsLayer1.resize(m_inputSize * m_hiddenSize1);
+    m_hWeightsLayer2.resize(m_hiddenSize1 * m_hiddenSize2);
+    m_hWeightsLayer3.resize(m_hiddenSize2 * m_outputSize);
 
-    InitRandom(m_hWeightsLayer1, m_inputSize * m_hiddenSize1);
-    InitRandom(m_hWeightsLayer2, m_hiddenSize1 * m_hiddenSize2);
-    InitRandom(m_hWeightsLayer3, m_hiddenSize2 * m_outputSize);
+    m_hBiasLayer1.resize(m_hiddenSize1);
+    m_hBiasLayer2.resize(m_hiddenSize2);
+    m_hBiasLayer3.resize(m_outputSize);
 
-    std::fill(m_hBiasLayer1, m_hBiasLayer1 + m_hiddenSize1, 0.0f);
-    std::fill(m_hBiasLayer2, m_hBiasLayer2 + m_hiddenSize2, 0.0f);
-    std::fill(m_hBiasLayer3, m_hBiasLayer3 + m_outputSize, 0.0f);
+    InitRandom(m_hWeightsLayer1.data(), m_hWeightsLayer1.size());
+    InitRandom(m_hWeightsLayer2.data(), m_hWeightsLayer2.size());
+    InitRandom(m_hWeightsLayer3.data(), m_hWeightsLayer3.size());
+
+    std::fill(m_hBiasLayer1.begin(), m_hBiasLayer1.end(), 0.0f);
+    std::fill(m_hBiasLayer2.begin(), m_hBiasLayer2.end(), 0.0f);
+    std::fill(m_hBiasLayer3.begin(), m_hBiasLayer3.end(), 0.0f);
 
     m_hPositions.resize(m_batchSize * 3);
     m_hTargets.resize(m_batchSize * m_outputSize);
@@ -102,12 +103,12 @@ void CTrainer::InitDeviceBuffers()
     cudaMalloc(&m_dBiasLayer3, m_outputSize * sizeof(float));
     cudaMalloc(&m_dOutput, m_batchSize * m_outputSize * sizeof(float));
 
-    cudaMemcpy(m_dWeightsLayer1, m_hWeightsLayer1, m_inputSize * m_hiddenSize1 * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(m_dBiasLayer1, m_hBiasLayer1, m_hiddenSize1 * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(m_dWeightsLayer2, m_hWeightsLayer2, m_hiddenSize1 * m_hiddenSize2 * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(m_dBiasLayer2, m_hBiasLayer2, m_hiddenSize2 * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(m_dWeightsLayer3, m_hWeightsLayer3, m_hiddenSize2 * m_outputSize * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMemcpy(m_dBiasLayer3, m_hBiasLayer3, m_outputSize * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(m_dWeightsLayer1, m_hWeightsLayer1.data(), m_inputSize * m_hiddenSize1 * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(m_dBiasLayer1, m_hBiasLayer1.data(), m_hiddenSize1 * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(m_dWeightsLayer2, m_hWeightsLayer2.data(), m_hiddenSize1 * m_hiddenSize2 * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(m_dBiasLayer2, m_hBiasLayer2.data(), m_hiddenSize2 * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(m_dWeightsLayer3, m_hWeightsLayer3.data(), m_hiddenSize2 * m_outputSize * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(m_dBiasLayer3, m_hBiasLayer3.data(), m_outputSize * sizeof(float), cudaMemcpyHostToDevice);
 
     AllocateHashTable(&m_dHashTable);
 }
@@ -117,14 +118,6 @@ void CTrainer::InitDeviceBuffers()
 //
 void CTrainer::FreeBuffers()
 {
-    // Host
-    delete[] m_hWeightsLayer1;  m_hWeightsLayer1 = nullptr;
-    delete[] m_hWeightsLayer2;  m_hWeightsLayer2 = nullptr;
-    delete[] m_hWeightsLayer3;  m_hWeightsLayer3 = nullptr;
-    delete[] m_hBiasLayer1;     m_hBiasLayer1 = nullptr;
-    delete[] m_hBiasLayer2;     m_hBiasLayer2 = nullptr;
-    delete[] m_hBiasLayer3;     m_hBiasLayer3 = nullptr;
-
     // Device
     if (m_dPositions)  cudaFree(m_dPositions); m_dPositions = nullptr;
     if (m_dTargets)    cudaFree(m_dTargets); m_dTargets = nullptr;
@@ -378,7 +371,7 @@ void CTrainer::LaunchKernel(int numBlocks, int threadsPerBlock, int baseHashReso
             m_dWeightsLayer2, m_dBiasLayer2,
             m_dWeightsLayer3, m_dBiasLayer3,
             m_dOutput,
-            m_inputSize, m_hiddenSize1, m_hiddenSize2, m_outputSize,
+            m_inputSize, m_hiddenSize1,m_hiddenSize2, m_outputSize,
             m_batchSize,
             m_learningRate,
             m_hashLearningRate,

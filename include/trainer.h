@@ -46,12 +46,12 @@ private:
     std::vector<float> m_hTargets;
     std::vector<float> m_hOutput;
 
-    float* m_hWeightsLayer1 = nullptr;
-    float* m_hWeightsLayer2 = nullptr;
-    float* m_hWeightsLayer3 = nullptr;
-    float* m_hBiasLayer1 = nullptr;
-    float* m_hBiasLayer2 = nullptr;
-    float* m_hBiasLayer3 = nullptr;
+    std::vector<float> m_hWeightsLayer1;
+    std::vector<float> m_hWeightsLayer2;
+    std::vector<float> m_hWeightsLayer3;
+    std::vector<float> m_hBiasLayer1;
+    std::vector<float> m_hBiasLayer2;
+    std::vector<float> m_hBiasLayer3;
 
     // -----------------------------------------
 	// Device Buffers
