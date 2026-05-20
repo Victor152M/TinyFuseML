@@ -3,19 +3,6 @@
 A neural rendering framework capable of training and rendering ultra-high-resolution images using a trainable multiresolution hash encoding.
 
 It also supports 3D SDF training and rendering, with a built-in volumetric renderer for visualizing SDFs.
-
-### Example — 1080p Default Image Training (2.6 seconds)
-
-| Original | Training Result |
-|----------|----------| 
-| ![Original Shop](images/cassette_shop_low_res.png) | ![Rendered Shop](images/cassette_shop_inferenece_low_res.png) |
-
-### Example — 3D SDF Training Results
-
-| Armadillo | Greek Column |
-|----------|----------|
-| ![3D_SDF](images/armadillo_sdf.png) | ![3D_SDF_Greek](images/greek_column_sdf.png) |
-
 ## Example — 470 Megapixel Rendering
 
 The following is a comparison of the original 20000 × 23466 (~470 megapixel)  
@@ -24,6 +11,19 @@ The following is a comparison of the original 20000 × 23466 (~470 megapixel)
 |----------|----------|
 | ![Original](images/girl_with_pearl_original.png) | ![Rendered](images/girl_with_pearl_inference.png) |
 | ![Original Close](images/girl_with_pearl_close_original.png) | ![Rendered Close](images/girl_with_pearl_close_inference.png) 
+
+### Example — 3D SDF Training Results
+
+| Armadillo | Greek Column |
+|----------|----------|
+| ![3D_SDF](images/armadillo_sdf.png) | ![3D_SDF_Greek](images/greek_column_sdf.png) |
+
+### Example — 1080p Default Image Training (2.6 seconds)
+
+| Original | Training Result |
+|----------|----------| 
+| ![Original Shop](images/cassette_shop_low_res.png) | ![Rendered Shop](images/cassette_shop_inferenece_low_res.png) |
+
 
 ### Features
 
