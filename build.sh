@@ -16,7 +16,7 @@ echo "Running CMake configuration..."
 cmake -DOpenCV_DIR=/usr/lib/x86_64-linux-gnu/cmake/opencv4 -Wno-dev ..
 
 echo "Building project..."
-cmake --build .
+cmake --build . -j 4
 
 echo "Running Project..."
 ./tinyfuseml

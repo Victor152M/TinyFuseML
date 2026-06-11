@@ -24,4 +24,3 @@ lucy.ply
 
 __pycache__
 nsight_compute.txt
-test_throughput.py
