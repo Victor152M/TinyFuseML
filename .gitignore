@@ -21,3 +21,7 @@ acoustic_guitar.obj
 celestial_globe.obj
 shuriken.obj
 lucy.ply
+
+__pycache__
+nsight_compute.txt
+test_throughput.py

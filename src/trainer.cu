@@ -176,12 +176,17 @@ void CTrainer::Train(int maxSteps, float batchLossThreshold, int baseHashResolut
             cudaMemcpy(m_hOutput.data(), m_dOutput, m_batchSize * m_outputSize * sizeof(float), cudaMemcpyDeviceToHost);
 
             float batchLoss = 0.0f;
-            for (int i = 0; i < m_batchSize; i++) 
+            for (int i = 0; i < m_batchSize; i++)
             {
-                float diff = m_hOutput[i] - m_hTargets[i];
-                batchLoss += diff * diff;
+                for (int c = 0; c < m_outputSize; c++)
+                {
+                    int idx = i * m_outputSize + c;
+                    float diff = m_hOutput[idx] - m_hTargets[idx];
+                    batchLoss += diff * diff;
+                }
             }
-            batchLoss /= m_batchSize;
+
+            batchLoss /= (m_batchSize * m_outputSize);
 
             std::cout << " Step " << step << ", Loss: " << batchLoss << std::endl;
 
