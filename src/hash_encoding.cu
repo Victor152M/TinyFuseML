@@ -66,8 +66,6 @@ __device__ void HashEncode(
 
         for (int f = 0; f < FEATURES_PER_LEVEL; ++f) 
         {
-            int levelOffset = level * (1 << LOG2_HASHMAP_SIZE) * FEATURES_PER_LEVEL;
-
             int idx00 = GetIndex(x0,     y0,     f);
             int idx10 = GetIndex(x0 + 1, y0,     f);
             int idx01 = GetIndex(x0,     y0 + 1, f);
