@@ -252,7 +252,7 @@ void CTrainer::Render(int width, int height, int baseHashResolution)
 
     std::vector<unsigned char> outputImage(width * height * 3);
 
-    const int inferenceBatchSize = 262144;
+    const int inferenceBatchSize = m_batchSize;
     std::vector<float> h_batchPositions(inferenceBatchSize * 2);
     std::vector<float> h_batchOutput(inferenceBatchSize * 3);
 
