@@ -169,10 +169,10 @@ __global__ void MLPKernel(
             grad = fminf(fmaxf(grad, -1.0f), 1.0f);
             if (!isfinite(grad)) grad = 0.0f;
 
-            atomicAdd(&hashTable[idx00], -hash_lr * w00 * grad);
-            atomicAdd(&hashTable[idx10], -hash_lr * w10 * grad);
-            atomicAdd(&hashTable[idx01], -hash_lr * w01 * grad);
-            atomicAdd(&hashTable[idx11], -hash_lr * w11 * grad);
+            hashTable[idx00] += -hash_lr * w00 * grad;
+            hashTable[idx10] += -hash_lr * w10 * grad;
+            hashTable[idx01] += -hash_lr * w01 * grad;
+            hashTable[idx11] += -hash_lr * w11 * grad;
         }
     }
 
