@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <sdf_loader.h>
+#include <hash_encoding.cuh>
 
 enum class ETrainingMode
 {
@@ -77,6 +78,13 @@ private:
     int m_outputSize;
     float m_learningRate;
     float m_hashLearningRate;
+    
+    // -----------------------------------------
+	// GPU Constants
+    //
+    float m_hHashLr[N_LEVELS];
+    int m_hResolution[N_LEVELS];
+    bool m_constantsInitialized = false;
 
     void SampleBatch(int step);
     void LaunchKernel(int numBlocks, int threadsPerBlock, int baseHashResolution);
@@ -86,4 +94,5 @@ private:
 	// Helpers
     //
     void InitRandom(float* array, int size, float scale = 0.3f);
+    void InitGPUConstants(int baseHashResolution);
 };

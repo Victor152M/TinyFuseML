@@ -3,6 +3,9 @@
 #include <cstdio>
 
 
+__constant__ float d_hashLr[N_LEVELS];
+__constant__ int   d_resolution[N_LEVELS];
+
 __global__ void MLPKernel(
     const float* __restrict__ positions,  // raw x,y pairs
     float* __restrict__ weightsLayer1,
@@ -135,12 +138,8 @@ __global__ void MLPKernel(
     // Backprop into hashTable using layer1_output_gradient
     int hashOffset = 0;
     for (int level = 0; level < N_LEVELS; ++level) {
-        //float hash_lr = 0.9f / powf(SCALE_FACTOR, level);
-        //float hash_lr = hashLearningRate;
-        float base_lr = hashLearningRate;
-        float base = 1.4f;
-        float hash_lr = base_lr / powf(base, level);
-        int resolution = static_cast<int>(baseHashResolution * powf(SCALE_FACTOR, level));
+        float hash_lr = d_hashLr[level];
+        int resolution = d_resolution[level];
 
         float fx = x * resolution;
         float fy = y * resolution;

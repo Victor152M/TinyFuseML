@@ -360,6 +360,24 @@ void CTrainer::SampleSDFBatchFromFile(const std::vector<SDFSample>& dataset)
     }
 }
 
+
+// -----------------------------------------
+// Initialize GPU constants
+//
+void CTrainer::InitGPUConstants(int baseHashResolution) {
+    if (m_constantsInitialized) { return; }
+
+    for (int l = 0; l < N_LEVELS; ++l) {
+        m_hHashLr[l] = m_hashLearningRate / powf(1.4f, l);
+        m_hResolution[l] = (int)(baseHashResolution * powf(SCALE_FACTOR, l));
+    }
+    
+    cudaError_t err;
+    err = cudaMemcpyToSymbol(d_hashLr, m_hHashLr, sizeof(m_hHashLr));
+    m_constantsInitialized = true;
+}
+
+
 // -----------------------------------------
 // Lunch Kernel
 //
@@ -387,6 +405,7 @@ void CTrainer::LaunchKernel(int numBlocks, int threadsPerBlock, int baseHashReso
         );
     } else 
     {
+        InitGPUConstants(baseHashResolution);
         MLPKernel<<<numBlocks, threadsPerBlock, sharedMemSize>>>(
                 m_dPositions, m_dWeightsLayer1, m_dBiasLayer1,
                 m_dWeightsLayer2, m_dBiasLayer2,
