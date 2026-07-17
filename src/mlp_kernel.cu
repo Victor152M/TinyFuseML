@@ -134,11 +134,12 @@ __global__ void MLPKernel(
 
     // Backprop into hashTable using layer1_output_gradient
     int hashOffset = 0;
+    float base_lr = hashLearningRate;
+    float base = 1.4f;
+    
     for (int level = 0; level < N_LEVELS; ++level) {
         //float hash_lr = 0.9f / powf(SCALE_FACTOR, level);
         //float hash_lr = hashLearningRate;
-        float base_lr = hashLearningRate;
-        float base = 1.4f;
         float hash_lr = base_lr / powf(base, level);
         int resolution = static_cast<int>(baseHashResolution * powf(SCALE_FACTOR, level));
 
@@ -149,9 +150,10 @@ __global__ void MLPKernel(
         float dx = fx - x0;
         float dy = fy - y0;
 
+        dx = fminf(fmaxf(dx, 0.0f), 1.0f);
+        dy = fminf(fmaxf(dy, 0.0f), 1.0f);
+
         for (int f = 0; f < FEATURES_PER_LEVEL; ++f) {
-            dx = fminf(fmaxf(dx, 0.0f), 1.0f);
-            dy = fminf(fmaxf(dy, 0.0f), 1.0f);
             int idx00 = hashIndices[hashOffset++];
             int idx10 = hashIndices[hashOffset++];
             int idx01 = hashIndices[hashOffset++];
@@ -167,7 +169,6 @@ __global__ void MLPKernel(
                 grad += weightsLayer1[j * inputSize + level * FEATURES_PER_LEVEL + f] * layer1_output_gradient[j];
             }
             grad = fminf(fmaxf(grad, -1.0f), 1.0f);
-            if (!isfinite(grad)) grad = 0.0f;
 
             atomicAdd(&hashTable[idx00], -hash_lr * w00 * grad);
             atomicAdd(&hashTable[idx10], -hash_lr * w10 * grad);
