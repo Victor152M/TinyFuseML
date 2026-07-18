@@ -3,6 +3,12 @@
 #include <cstdio>
 
 
+constexpr int INPUT_SIZE = 32;
+constexpr int HIDDEN_SIZE_1 = 16;
+constexpr int HIDDEN_SIZE_2 = 16;
+constexpr int OUTPUT_SIZE = 3;
+
+
 __global__ void MLPKernel(
     const float* __restrict__ positions,  // raw x,y pairs
     float* __restrict__ weightsLayer1,
@@ -26,59 +32,87 @@ __global__ void MLPKernel(
 )
 {
     // Identify the sample each thread works on
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    int tid = threadIdx.x;
+    int idx = blockIdx.x * blockDim.x + tid;
+    
     if (idx >= batchSize) return;
 
-    float encodedInput[HASH_ENCODED_SIZE];
+    float encodedInput[INPUT_SIZE];
+
+    float activation1[HIDDEN_SIZE_1];
+    float activation2[HIDDEN_SIZE_2];
+
+    float outputGradient[OUTPUT_SIZE];
+    float layer2OutputGradient[HIDDEN_SIZE_2];
+    float layer1OutputGradient[HIDDEN_SIZE_1];
+
     int hashIndices[HASH_ENCODED_SIZE * 4];
 
     float x = positions[idx * 2 + 0];
     float y = positions[idx * 2 + 1];
 
-    HashEncode(x, y, encodedInput, hashTable, hashIndices, baseHashResolution);
-
-    const float* input = encodedInput;
-    const float* target = targets + idx * outputSize;
-    float* output = outputs + idx * outputSize;
 
     extern __shared__ float shared[];
 
-    int tid = threadIdx.x;
+    float* layer3WeightGrad = shared;
+    float* layer3BiasGrad = layer3WeightGrad + OUTPUT_SIZE * HIDDEN_SIZE_2;
+    float* layer2WeightGrad = layer3BiasGrad + OUTPUT_SIZE;
+    float* layer2BiasGrad = layer2WeightGrad + HIDDEN_SIZE_2 * HIDDEN_SIZE_1;
+    float* layer1WeightGrad = layer2BiasGrad + HIDDEN_SIZE_2;
+    float* layer1BiasGrad = layer1WeightGrad + HIDDEN_SIZE_1 * INPUT_SIZE;
 
-    int local_size = hiddenSize1 + hiddenSize2 + outputSize + outputSize + hiddenSize2 + hiddenSize1;
-    float* activation1                 = shared + tid * local_size;
-    float* activation2                 = activation1 + hiddenSize1;
-    float* outputGradient              = activation2 + hiddenSize2;
-    float* preActivationGrad3          = outputGradient + outputSize;
-    float* layer2_output_gradient      = preActivationGrad3 + outputSize;
-    float* layer1_output_gradient      = layer2_output_gradient + hiddenSize2;
+
+    if (tid < OUTPUT_SIZE * HIDDEN_SIZE_2)
+        layer3WeightGrad[tid] = 0.0f;
+
+    if (tid < OUTPUT_SIZE)
+        layer3BiasGrad[tid] = 0.0f;
+
+    for (int i = tid; i < HIDDEN_SIZE_2 * HIDDEN_SIZE_1; i += blockDim.x)
+        layer2WeightGrad[i] = 0.0f;
+
+    if (tid < HIDDEN_SIZE_2)
+        layer2BiasGrad[tid] = 0.0f;
+
+    for (int i = tid; i < HIDDEN_SIZE_1 * INPUT_SIZE; i += blockDim.x)
+        layer1WeightGrad[i] = 0.0f;
+
+    if (tid < HIDDEN_SIZE_1)
+        layer1BiasGrad[tid] = 0.0f;
+
+    __syncthreads();
+
+    HashEncode(x, y, encodedInput, hashTable, hashIndices, baseHashResolution);
+
+    const float* target = targets + idx * outputSize;
+    float* output = outputs + idx * outputSize;
 
     //Forward pass
     #pragma unroll
-    for (int i = 0; i < hiddenSize1; i++) 
+    for (int i = 0; i < HIDDEN_SIZE_1; i++) 
     {
         float sum = biasLayer1[i];
-        for (int j = 0; j < inputSize; j++) 
-            sum += weightsLayer1[i * inputSize + j] * input[j];
+        for (int j = 0; j < INPUT_SIZE; j++)
+            sum += weightsLayer1[i * INPUT_SIZE + j] * encodedInput[j];
         activation1[i] = Relu(sum);
     }
 
     #pragma unroll
     // Hidden1 to Hidden2
-    for (int i = 0; i < hiddenSize2; i++) 
+    for (int i = 0; i < HIDDEN_SIZE_2; i++) 
     {
         float sum = biasLayer2[i];
-        for (int j = 0; j < hiddenSize1; j++)
-            sum += weightsLayer2[i * hiddenSize1 + j] * activation1[j];
+        for (int j = 0; j < HIDDEN_SIZE_1; j++)
+            sum += weightsLayer2[i * HIDDEN_SIZE_1 + j] * activation1[j];
         activation2[i] = Relu(sum);
     }
 
     // Hidden2 to Output (Linear)
-    for (int i = 0; i < outputSize; i++) 
+    for (int i = 0; i < OUTPUT_SIZE; i++) 
     {
         float sum = biasLayer3[i];
-        for (int j = 0; j < hiddenSize2; j++)
-            sum += weightsLayer3[i * hiddenSize2 + j] * activation2[j];
+        for (int j = 0; j < HIDDEN_SIZE_2; j++)
+            sum += weightsLayer3[i * HIDDEN_SIZE_2 + j] * activation2[j];
         output[i] = sum;
     }
 
@@ -87,56 +121,32 @@ __global__ void MLPKernel(
     // Backward pass
 
     // Gradient of the loss
-    for (int i = 0; i < outputSize; i++) {
-        outputGradient[i]     = output[i] - target[i];
-        preActivationGrad3[i] = outputGradient[i]; // Linear output
-    }
-    
-    // Update weights for Layer3: Hidden2 to Output
-    for (int i = 0; i < outputSize; i++) {
-        for (int j = 0; j < hiddenSize2; j++) {
-            float grad = preActivationGrad3[i] * activation2[j];
-            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
-            atomicAdd(&weightsLayer3[i * hiddenSize2 + j], -learningRate * grad);
-        }
-        atomicAdd(&biasLayer3[i], -learningRate * preActivationGrad3[i]);
-    }
+    for (int i = 0; i < OUTPUT_SIZE; i++)
+        outputGradient[i] = output[i] - target[i];
 
     // Backprop: Layer3 to Layer2
-    for (int j = 0; j < hiddenSize2; j++) {
-        float grad = 0.0f;
-        for (int i = 0; i < outputSize; i++) {
-            grad += preActivationGrad3[i] * weightsLayer3[i * hiddenSize2 + j];
-        }
-        layer2_output_gradient[j] = grad * ReluDerivative(activation2[j]);
+    for (int j = 0; j < HIDDEN_SIZE_2; j++) 
+    {
+        float gradient = 0.0f;
+        for (int i = 0; i < OUTPUT_SIZE; i++)
+            gradient += outputGradient[i] * weightsLayer3[i * HIDDEN_SIZE_2 + j];
+        layer2OutputGradient[j] = gradient * ReluDerivative(activation2[j]);
     }
 
-    #pragma unroll
-    // Update weights for Layer2: Hidden1 to Hidden2
-    for (int i = 0; i < hiddenSize2; i++) {
-        for (int j = 0; j < hiddenSize1; j++) {
-            float grad = layer2_output_gradient[i] * activation1[j];
-            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
-            atomicAdd(&weightsLayer2[i * hiddenSize1 + j], -learningRate * grad);
+    // Backprop: Layer2 to Layer1
+    for (int j = 0; j < HIDDEN_SIZE_1; j++)
+    {
+        float gradient = 0.0f;
+        for (int i = 0; i < HIDDEN_SIZE_2; i++) {
+            gradient += layer2OutputGradient[i] * weightsLayer2[i * HIDDEN_SIZE_1 + j];
         }
-        atomicAdd(&biasLayer2[i], -learningRate * layer2_output_gradient[i]);
-    }
-
-        // Backprop: Layer2 to Layer1
-    for (int j = 0; j < hiddenSize1; j++) {
-        float grad = 0.0f;
-        for (int i = 0; i < hiddenSize2; i++) {
-            grad += layer2_output_gradient[i] * weightsLayer2[i * hiddenSize1 + j];
-        }
-        layer1_output_gradient[j] = grad * ReluDerivative(activation1[j]);
+        layer1OutputGradient[j] = gradient * ReluDerivative(activation1[j]);
     }
 
 
-    // Backprop into hashTable using layer1_output_gradient
     int hashOffset = 0;
     float base_lr = hashLearningRate;
     float base = 1.4f;
-    
     for (int level = 0; level < N_LEVELS; ++level) {
         //float hash_lr = 0.9f / powf(SCALE_FACTOR, level);
         //float hash_lr = hashLearningRate;
@@ -166,7 +176,7 @@ __global__ void MLPKernel(
 
             float grad = 0.0f;
             for (int j = 0; j < hiddenSize1; ++j) {
-                grad += weightsLayer1[j * inputSize + level * FEATURES_PER_LEVEL + f] * layer1_output_gradient[j];
+                grad += weightsLayer1[j * INPUT_SIZE + level * FEATURES_PER_LEVEL + f] * layer1OutputGradient[j];
             }
             grad = fminf(fmaxf(grad, -1.0f), 1.0f);
 
@@ -178,16 +188,76 @@ __global__ void MLPKernel(
     }
 
 
-    // Update weights for Layer1: Input to Hidden1
-    for (int i = 0; i < hiddenSize1; i++) {
-        for (int j = 0; j < inputSize; j++) {
-            float grad = layer1_output_gradient[i] * input[j];
-            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
-            atomicAdd(&weightsLayer1[i * inputSize + j], -learningRate * grad);
+    for (int i = 0; i <OUTPUT_SIZE; i++)
+    {
+        for (int j = 0; j < HIDDEN_SIZE_2; j++) 
+        {
+            float gradient = outputGradient[i] * activation2[j];
+            gradient = fminf(fmaxf(gradient, -1.0f), 1.0f);
+            // Apply gradient to shared memory
+            atomicAdd(&layer3WeightGrad[i * HIDDEN_SIZE_2 + j], gradient);
         }
-        atomicAdd(&biasLayer1[i], -learningRate * layer1_output_gradient[i]);
+        // Apply bias gradient to shared memory
+        float biasGradient = outputGradient[i];
+        atomicAdd(&layer3BiasGrad[i], biasGradient);
     }
+
+    __syncthreads();
+
+    if (tid < OUTPUT_SIZE * HIDDEN_SIZE_2)
+        atomicAdd(&weightsLayer3[tid], -learningRate * layer3WeightGrad[tid]);
+
+    if (tid < OUTPUT_SIZE)
+        atomicAdd(&biasLayer3[tid], -learningRate * layer3BiasGrad[tid]);
+
+
+    for (int i = 0; i < HIDDEN_SIZE_2; i++) 
+    {
+        for (int j = 0; j < HIDDEN_SIZE_1; j++)
+        {
+            float gradient = layer2OutputGradient[i] * activation1[j];
+            gradient = fminf(fmaxf(gradient, -1.0f), 1.0f);
+            // Apply gradient to shared memory
+            atomicAdd(&layer2WeightGrad[i * HIDDEN_SIZE_1 + j], gradient);
+        }
+        // Apply bias gradient to shared memory
+        float biasGradient = layer2OutputGradient[i];
+        atomicAdd(&layer2BiasGrad[i], layer2OutputGradient[i]);
+    }
+
+    __syncthreads();
+
+    for (int i = tid; i < HIDDEN_SIZE_2 * HIDDEN_SIZE_1; i += blockDim.x)
+        atomicAdd(&weightsLayer2[i], -learningRate * layer2WeightGrad[i]);
+
+    if (tid < HIDDEN_SIZE_2)
+        atomicAdd(&biasLayer2[tid], -learningRate * layer2BiasGrad[tid]);
+
+
+    for (int i = 0; i < HIDDEN_SIZE_1; i++) 
+    {
+        for (int j = 0; j < INPUT_SIZE; j++) 
+        {
+            float gradient = layer1OutputGradient[i] * encodedInput[j];
+            gradient = fminf(fmaxf(gradient, -1.0f), 1.0f);
+            // Apply gradient to shared memory
+            atomicAdd(&layer1WeightGrad[i * INPUT_SIZE + j], gradient);
+        }
+        // Apply bias gradient to shared memory
+        float biasGradient = layer1OutputGradient[i];
+        atomicAdd(&layer1BiasGrad[i], layer1OutputGradient[i]);
+    }
+
+    __syncthreads();
+
+    for (int i = tid; i < HIDDEN_SIZE_1 * INPUT_SIZE; i += blockDim.x)
+        atomicAdd(&weightsLayer1[i], -learningRate * layer1WeightGrad[i]);
+
+    if (tid < HIDDEN_SIZE_1)
+        atomicAdd(&biasLayer1[tid], -learningRate * layer1BiasGrad[tid]);
+    
 }
+
 
 __global__ void MLPSDFKernel(
     const float* __restrict__ sdfPositions, // x, y, z

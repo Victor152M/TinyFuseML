@@ -365,8 +365,8 @@ void CTrainer::SampleSDFBatchFromFile(const std::vector<SDFSample>& dataset)
 //
 void CTrainer::LaunchKernel(int numBlocks, int threadsPerBlock, int baseHashResolution)
 {
-    int sharedMemSize = threadsPerBlock * (m_hiddenSize1 + m_hiddenSize2 + m_outputSize + m_outputSize + 
-                        m_hiddenSize2 + m_hiddenSize1) * sizeof(float);
+    int sharedMemSize = (m_outputSize * m_hiddenSize2 + m_outputSize + m_hiddenSize2 * m_hiddenSize1 + m_hiddenSize2 +
+                        m_hiddenSize1 * m_inputSize + m_hiddenSize1) * sizeof(float);
 
     if (m_trainingMode == ETrainingMode::SDF)
     {
