@@ -365,18 +365,34 @@ void CTrainer::SampleSDFBatchFromFile(const std::vector<SDFSample>& dataset)
 //
 void CTrainer::LaunchKernel(int numBlocks, int threadsPerBlock, int baseHashResolution)
 {
-    int sharedMemSize = (m_outputSize * m_hiddenSize2 + m_outputSize + m_hiddenSize2 * m_hiddenSize1 + m_hiddenSize2 +
-                        m_hiddenSize1 * m_inputSize + m_hiddenSize1) * sizeof(float);
-
+    // For the new MLPKernel with warp-level reduction
+    // Shared memory needed: numWarps * NUM_MLP_PARAMS * sizeof(float)
+    const int warpSize = 32;
+    int numWarps = (threadsPerBlock + warpSize - 1) / warpSize;
+    
+    // Calculate NUM_MLP_PARAMS: total number of MLP parameters (weights + biases)
+    // Layer 3: outputSize * hiddenSize2 + outputSize
+    // Layer 2: hiddenSize2 * hiddenSize1 + hiddenSize2  
+    // Layer 1: hiddenSize1 * inputSize + hiddenSize1
+    int numMLPParams = (m_outputSize * m_hiddenSize2 + m_outputSize) +
+                       (m_hiddenSize2 * m_hiddenSize1 + m_hiddenSize2) +
+                       (m_hiddenSize1 * m_inputSize + m_hiddenSize1);
+    
+    int sharedMemSize = numWarps * numMLPParams * sizeof(float);
+    
     if (m_trainingMode == ETrainingMode::SDF)
     {
-        MLPSDFKernel<<<numBlocks, threadsPerBlock, sharedMemSize>>>(
+        // For SDF kernel, we keep the original shared memory layout (or you could apply similar optimization)
+        int sdfSharedMemSize = (m_hiddenSize1 + m_hiddenSize2 + m_outputSize + m_outputSize + 
+                               m_hiddenSize2 + m_hiddenSize1) * sizeof(float) * threadsPerBlock;
+        
+        MLPSDFKernel<<<numBlocks, threadsPerBlock, sdfSharedMemSize>>>(
             m_dPositions,
             m_dWeightsLayer1, m_dBiasLayer1,
             m_dWeightsLayer2, m_dBiasLayer2,
             m_dWeightsLayer3, m_dBiasLayer3,
             m_dOutput,
-            m_inputSize, m_hiddenSize1,m_hiddenSize2, m_outputSize,
+            m_inputSize, m_hiddenSize1, m_hiddenSize2, m_outputSize,
             m_batchSize,
             m_learningRate,
             m_hashLearningRate,
@@ -385,13 +401,23 @@ void CTrainer::LaunchKernel(int numBlocks, int threadsPerBlock, int baseHashReso
             m_dHashTable,
             baseHashResolution
         );
-    } else 
+    } 
+    else 
     {
         MLPKernel<<<numBlocks, threadsPerBlock, sharedMemSize>>>(
-                m_dPositions, m_dWeightsLayer1, m_dBiasLayer1,
-                m_dWeightsLayer2, m_dBiasLayer2,
-                m_dWeightsLayer3, m_dBiasLayer3,
-                m_dOutput, HASH_ENCODED_SIZE, m_hiddenSize1, m_hiddenSize2,
-                m_outputSize, m_batchSize, m_learningRate, m_hashLearningRate, m_dTargets, true, m_dHashTable, baseHashResolution);
+            m_dPositions,
+            m_dWeightsLayer1, m_dBiasLayer1,
+            m_dWeightsLayer2, m_dBiasLayer2,
+            m_dWeightsLayer3, m_dBiasLayer3,
+            m_dOutput,
+            m_inputSize, m_hiddenSize1, m_hiddenSize2, m_outputSize,
+            m_batchSize,
+            m_learningRate,
+            m_hashLearningRate,
+            m_dTargets,
+            true,
+            m_dHashTable,
+            baseHashResolution
+        );
     }
 }
