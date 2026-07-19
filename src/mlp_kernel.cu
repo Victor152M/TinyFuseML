@@ -201,6 +201,13 @@ __global__ void MLPKernel(
                 localGrads[i] += warpPtr[i];
             }
         }
+
+        const float invBatch = 1.0f / blockDim.x;
+
+        #pragma unroll
+        for (int i = 0; i < chunkSize; i++) {
+            localGrads[i] *= invBatch;
+        }
         
         // Apply the updates (only one thread per parameter does atomicAdd)
         // We use a simple lock-free approach: each thread owns its chunk
@@ -212,8 +219,7 @@ __global__ void MLPKernel(
         for (int p = paramChunk; p < chunkEnd && p < layer3WeightEnd; p++) {
             int i = p / HIDDEN_SIZE2;
             int j = p % HIDDEN_SIZE2;
-            atomicAdd(&weightsLayer3[i * HIDDEN_SIZE2 + j], 
-                     -learningRate * localGrads[p - paramChunk]);
+            atomicAdd(&weightsLayer3[i * HIDDEN_SIZE2 + j], -learningRate * localGrads[p - paramChunk]);
         }
         
         // Layer 3 biases
@@ -234,8 +240,7 @@ __global__ void MLPKernel(
                 int localIdx = p - layer2WeightStart;
                 int i = localIdx / HIDDEN_SIZE1;
                 int j = localIdx % HIDDEN_SIZE1;
-                atomicAdd(&weightsLayer2[i * HIDDEN_SIZE1 + j], 
-                         -learningRate * localGrads[p - paramChunk]);
+                atomicAdd(&weightsLayer2[i * HIDDEN_SIZE1 + j], -learningRate * localGrads[p - paramChunk]);
             }
         }
         
@@ -278,7 +283,7 @@ __global__ void MLPKernel(
     float base_lr = hashLearningRate;
     float base = 1.4f;
     for (int level = 0; level < N_LEVELS; ++level) {
-        float hash_lr = base_lr / powf(base, level);
+        float hash_lr = hashLearningRate;
         int resolution = static_cast<int>(baseHashResolution * powf(SCALE_FACTOR, level));
         float fx = x * resolution;
         float fy = y * resolution;
@@ -289,16 +294,17 @@ __global__ void MLPKernel(
         dx = fminf(fmaxf(dx, 0.0f), 1.0f);
         dy = fminf(fmaxf(dy, 0.0f), 1.0f);
 
+        float w00 = (1 - dx) * (1 - dy);
+        float w10 = dx * (1 - dy);
+        float w01 = (1 - dx) * dy;
+        float w11 = dx * dy;
+
         for (int f = 0; f < FEATURES_PER_LEVEL; ++f) {
             int idx00 = hashIndices[hashOffset++];
             int idx10 = hashIndices[hashOffset++];
             int idx01 = hashIndices[hashOffset++];
             int idx11 = hashIndices[hashOffset++];
 
-            float w00 = (1 - dx) * (1 - dy);
-            float w10 = dx * (1 - dy);
-            float w01 = (1 - dx) * dy;
-            float w11 = dx * dy;
 
             float grad = 0.0f;
             for (int j = 0; j < hiddenSize1; ++j) {
