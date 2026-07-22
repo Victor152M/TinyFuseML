@@ -140,7 +140,7 @@ __global__ void MLPKernel(
     for (int level = 0; level < N_LEVELS; ++level) {
         //float hash_lr = 0.9f / powf(SCALE_FACTOR, level);
         //float hash_lr = hashLearningRate;
-        float hash_lr = base_lr / powf(base, level);
+        float hash_lr = hashLearningRate;
         int resolution = static_cast<int>(baseHashResolution * powf(SCALE_FACTOR, level));
 
         float fx = x * resolution;
@@ -168,7 +168,7 @@ __global__ void MLPKernel(
             for (int j = 0; j < hiddenSize1; ++j) {
                 grad += weightsLayer1[j * inputSize + level * FEATURES_PER_LEVEL + f] * layer1_output_gradient[j];
             }
-            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
+            //grad = fminf(fmaxf(grad, -1.0f), 1.0f);
 
             atomicAdd(&hashTable[idx00], -hash_lr * w00 * grad);
             atomicAdd(&hashTable[idx10], -hash_lr * w10 * grad);

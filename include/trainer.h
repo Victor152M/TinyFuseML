@@ -85,5 +85,5 @@ private:
     // -----------------------------------------
 	// Helpers
     //
-    void InitRandom(float* array, int size, float scale = 0.3f);
+    void InitRandom(float* array, int size, int fan_in);
 };
