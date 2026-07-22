@@ -33,16 +33,17 @@ CTrainer::~CTrainer()
 }
 
 // -----------------------------------------
-// Random Initialization Helper
+// Initialization Helper
 //
-void CTrainer::InitRandom(float* array, int size, float scale)
-{
-    for (int i = 0; i < size; i++)
-    {
-        array[i] = static_cast<float>(rand()) / RAND_MAX * scale;
+// Scaled He uniform initialization.
+// Uses He's sqrt(2/fan_in) scaling with a reduced uniform range
+// compared to the canonical He uniform initializer.
+void CTrainer::InitRandom(float* array, int size, int fan_in) {
+    float std = sqrtf(2.0f / fan_in);   // He initialization for LeakyReLU
+    for (int i = 0; i < size; i++) {
+        array[i] = std * (2.0f * (rand() / (float)RAND_MAX) - 1.0f);
     }
 }
-
 // -----------------------------------------
 // Setters
 //
@@ -71,13 +72,13 @@ void CTrainer::InitHostBuffers()
     m_hBiasLayer2.resize(m_hiddenSize2);
     m_hBiasLayer3.resize(m_outputSize);
 
-    InitRandom(m_hWeightsLayer1.data(), m_hWeightsLayer1.size());
-    InitRandom(m_hWeightsLayer2.data(), m_hWeightsLayer2.size());
-    InitRandom(m_hWeightsLayer3.data(), m_hWeightsLayer3.size());
+    InitRandom(m_hWeightsLayer1.data(), m_hWeightsLayer1.size(), m_inputSize);
+    InitRandom(m_hWeightsLayer2.data(), m_hWeightsLayer2.size(), m_hiddenSize1);
+    InitRandom(m_hWeightsLayer3.data(), m_hWeightsLayer3.size(), m_hiddenSize2);
 
-    std::fill(m_hBiasLayer1.begin(), m_hBiasLayer1.end(), 0.0f);
-    std::fill(m_hBiasLayer2.begin(), m_hBiasLayer2.end(), 0.0f);
-    std::fill(m_hBiasLayer3.begin(), m_hBiasLayer3.end(), 0.0f);
+    std::fill(m_hBiasLayer1.begin(), m_hBiasLayer1.end(), 0.1f);
+    std::fill(m_hBiasLayer2.begin(), m_hBiasLayer2.end(), 0.1f);
+    std::fill(m_hBiasLayer3.begin(), m_hBiasLayer3.end(), 0.1f);
 
     m_hPositions.resize(m_batchSize * 3);
     m_hTargets.resize(m_batchSize * m_outputSize);

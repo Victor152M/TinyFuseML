@@ -7,7 +7,6 @@ constexpr int HIDDEN_SIZE1 = 16;
 constexpr int HIDDEN_SIZE2 = 16;
 constexpr int OUTPUT_SIZE = 3;
 
-// Total number of MLP parameters (weights + biases)
 constexpr int NUM_MLP_PARAMS =
     (INPUT_SIZE * HIDDEN_SIZE1 + HIDDEN_SIZE1) +
     (HIDDEN_SIZE1 * HIDDEN_SIZE2 + HIDDEN_SIZE2) +
@@ -62,7 +61,7 @@ __global__ void MLPKernel(
         float sum = biasLayer1[i];
         for (int j = 0; j < INPUT_SIZE; j++)
             sum += weightsLayer1[i * INPUT_SIZE + j] * encodedInput[j];
-        activation1[i] = Relu(sum);
+        activation1[i] = LeakyRelu(sum);
     }
 
     #pragma unroll
@@ -70,7 +69,7 @@ __global__ void MLPKernel(
         float sum = biasLayer2[i];
         for (int j = 0; j < HIDDEN_SIZE1; j++)
             sum += weightsLayer2[i * HIDDEN_SIZE1 + j] * activation1[j];
-        activation2[i] = Relu(sum);
+        activation2[i] = LeakyRelu(sum);
     }
 
     for (int i = 0; i < OUTPUT_SIZE; i++) {
@@ -90,200 +89,21 @@ __global__ void MLPKernel(
         float grad = 0.0f;
         for (int i = 0; i < OUTPUT_SIZE; i++)
             grad += outputGradient[i] * weightsLayer3[i * HIDDEN_SIZE2 + j];
-        layer2OutputGradient[j] = grad * ReluDerivative(activation2[j]);
+        layer2OutputGradient[j] = grad * LeakyReluDerivative(activation2[j]);
     }
 
     for (int j = 0; j < HIDDEN_SIZE1; j++) {
         float grad = 0.0f;
         for (int i = 0; i < HIDDEN_SIZE2; i++)
             grad += layer2OutputGradient[i] * weightsLayer2[i * HIDDEN_SIZE1 + j];
-        layer1OutputGradient[j] = grad * ReluDerivative(activation1[j]);
+        layer1OutputGradient[j] = grad * LeakyReluDerivative(activation1[j]);
     }
 
-    // ── Shared memory layout ──
-    extern __shared__ float shared[];
-    const int warpSize = 32;
-    int warpId = tid / warpSize;
-    int laneId = tid % warpSize;
-    int numWarps = (blockDim.x + warpSize - 1) / warpSize;
-    
-    // Each warp writes its reduced gradients to its own section
-    float* warpGrads = shared;  // size = numWarps * NUM_MLP_PARAMS
-
-    // ── Helper lambda for warp reduction ──
-    auto warpReduce = [&](float val, int paramIdx) {
-        for (int offset = warpSize/2; offset > 0; offset >>= 1)
-            val += __shfl_down_sync(0xffffffff, val, offset);
-        if (laneId == 0) {
-            warpGrads[warpId * NUM_MLP_PARAMS + paramIdx] = val;
-        }
-    };
-
-    // ── Compute gradients and reduce within warp ──
-    // Layer 3 weights: outputSize * hiddenSize2
-    for (int i = 0; i < OUTPUT_SIZE; i++) {
-        for (int j = 0; j < HIDDEN_SIZE2; j++) {
-            float grad = outputGradient[i] * activation2[j];
-            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
-            warpReduce(grad, i * HIDDEN_SIZE2 + j);
-        }
-    }
-    
-    // Layer 3 biases
-    int baseIdx = OUTPUT_SIZE * HIDDEN_SIZE2;
-    for (int i = 0; i < OUTPUT_SIZE; i++) {
-        warpReduce(outputGradient[i], baseIdx + i);
-    }
-
-    // Layer 2 weights: hiddenSize2 * hiddenSize1
-    baseIdx += OUTPUT_SIZE;
-    for (int i = 0; i < HIDDEN_SIZE2; i++) {
-        for (int j = 0; j < HIDDEN_SIZE1; j++) {
-            float grad = layer2OutputGradient[i] * activation1[j];
-            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
-            warpReduce(grad, baseIdx + i * HIDDEN_SIZE1 + j);
-        }
-    }
-    
-    // Layer 2 biases
-    baseIdx += HIDDEN_SIZE2 * HIDDEN_SIZE1;
-    for (int i = 0; i < HIDDEN_SIZE2; i++) {
-        warpReduce(layer2OutputGradient[i], baseIdx + i);
-    }
-
-    // Layer 1 weights: hiddenSize1 * inputSize
-    baseIdx += HIDDEN_SIZE2;
-    for (int i = 0; i < HIDDEN_SIZE1; i++) {
-        for (int j = 0; j < INPUT_SIZE; j++) {
-            float grad = layer1OutputGradient[i] * encodedInput[j];
-            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
-            warpReduce(grad, baseIdx + i * INPUT_SIZE + j);
-        }
-    }
-    
-    // Layer 1 biases
-    baseIdx += HIDDEN_SIZE1 * INPUT_SIZE;
-    for (int i = 0; i < HIDDEN_SIZE1; i++) {
-        warpReduce(layer1OutputGradient[i], baseIdx + i);
-    }
-
-    __syncthreads();
-
-    // ── Parallel block-level reduction ──
-    // Each thread reduces a subset of parameters across all warps
-    // This avoids having thread 0 do all the work
-    
-    // Determine which parameters this thread will reduce
-    int paramsPerThread = (NUM_MLP_PARAMS + blockDim.x - 1) / blockDim.x;
-    int startParam = tid * paramsPerThread;
-    int endParam = min(startParam + paramsPerThread, NUM_MLP_PARAMS);
-    
-    // Allocate local array for reduced gradients (in registers/local memory)
-    // We'll process in chunks to avoid large local arrays
-    const int CHUNK_SIZE = 16;  // Process 16 params at a time
-    float localGrads[CHUNK_SIZE];
-    
-    for (int paramChunk = startParam; paramChunk < endParam; paramChunk += CHUNK_SIZE) {
-        int chunkEnd = min(paramChunk + CHUNK_SIZE, endParam);
-        int chunkSize = chunkEnd - paramChunk;
-        
-        // Zero the local array
-        #pragma unroll
-        for (int i = 0; i < CHUNK_SIZE; i++) {
-            localGrads[i] = 0.0f;
-        }
-        
-        // Sum across all warps for this chunk
-        for (int w = 0; w < numWarps; w++) {
-            float* warpPtr = warpGrads + w * NUM_MLP_PARAMS + paramChunk;
-            #pragma unroll
-            for (int i = 0; i < chunkSize; i++) {
-                localGrads[i] += warpPtr[i];
-            }
-        }
-
-        const float invBatch = 1.0f / blockDim.x;
-
-        #pragma unroll
-        for (int i = 0; i < chunkSize; i++) {
-            localGrads[i] *= invBatch;
-        }
-        
-        // Apply the updates (only one thread per parameter does atomicAdd)
-        // We use a simple lock-free approach: each thread owns its chunk
-        // No synchronization needed since parameters don't overlap between threads
-        
-        // Layer 3 weights
-        int layer3WeightStart = 0;
-        int layer3WeightEnd = OUTPUT_SIZE * HIDDEN_SIZE2;
-        for (int p = paramChunk; p < chunkEnd && p < layer3WeightEnd; p++) {
-            int i = p / HIDDEN_SIZE2;
-            int j = p % HIDDEN_SIZE2;
-            atomicAdd(&weightsLayer3[i * HIDDEN_SIZE2 + j], -learningRate * localGrads[p - paramChunk]);
-        }
-        
-        // Layer 3 biases
-        int layer3BiasStart = layer3WeightEnd;
-        int layer3BiasEnd = layer3BiasStart + OUTPUT_SIZE;
-        for (int p = paramChunk; p < chunkEnd && p < layer3BiasEnd; p++) {
-            if (p >= layer3BiasStart) {
-                int i = p - layer3BiasStart;
-                atomicAdd(&biasLayer3[i], -learningRate * localGrads[p - paramChunk]);
-            }
-        }
-        
-        // Layer 2 weights
-        int layer2WeightStart = layer3BiasEnd;
-        int layer2WeightEnd = layer2WeightStart + HIDDEN_SIZE2 * HIDDEN_SIZE1;
-        for (int p = paramChunk; p < chunkEnd && p < layer2WeightEnd; p++) {
-            if (p >= layer2WeightStart) {
-                int localIdx = p - layer2WeightStart;
-                int i = localIdx / HIDDEN_SIZE1;
-                int j = localIdx % HIDDEN_SIZE1;
-                atomicAdd(&weightsLayer2[i * HIDDEN_SIZE1 + j], -learningRate * localGrads[p - paramChunk]);
-            }
-        }
-        
-        // Layer 2 biases
-        int layer2BiasStart = layer2WeightEnd;
-        int layer2BiasEnd = layer2BiasStart + HIDDEN_SIZE2;
-        for (int p = paramChunk; p < chunkEnd && p < layer2BiasEnd; p++) {
-            if (p >= layer2BiasStart) {
-                int i = p - layer2BiasStart;
-                atomicAdd(&biasLayer2[i], -learningRate * localGrads[p - paramChunk]);
-            }
-        }
-        
-        // Layer 1 weights
-        int layer1WeightStart = layer2BiasEnd;
-        int layer1WeightEnd = layer1WeightStart + HIDDEN_SIZE1 * INPUT_SIZE;
-        for (int p = paramChunk; p < chunkEnd && p < layer1WeightEnd; p++) {
-            if (p >= layer1WeightStart) {
-                int localIdx = p - layer1WeightStart;
-                int i = localIdx / INPUT_SIZE;
-                int j = localIdx % INPUT_SIZE;
-                atomicAdd(&weightsLayer1[i * INPUT_SIZE + j], 
-                         -learningRate * localGrads[p - paramChunk]);
-            }
-        }
-        
-        // Layer 1 biases
-        int layer1BiasStart = layer1WeightEnd;
-        int layer1BiasEnd = layer1BiasStart + HIDDEN_SIZE1;
-        for (int p = paramChunk; p < chunkEnd && p < layer1BiasEnd; p++) {
-            if (p >= layer1BiasStart) {
-                int i = p - layer1BiasStart;
-                atomicAdd(&biasLayer1[i], -learningRate * localGrads[p - paramChunk]);
-            }
-        }
-    }
-
-    // ── Hash table updates (remain per‑thread atomic) ──
     int hashOffset = 0;
     float base_lr = hashLearningRate;
     float base = 1.4f;
     for (int level = 0; level < N_LEVELS; ++level) {
-        float hash_lr = base_lr / powf(base, level);
+        float hash_lr = hashLearningRate;
         int resolution = static_cast<int>(baseHashResolution * powf(SCALE_FACTOR, level));
         float fx = x * resolution;
         float fy = y * resolution;
@@ -293,7 +113,6 @@ __global__ void MLPKernel(
         float dy = fy - y0;
         dx = fminf(fmaxf(dx, 0.0f), 1.0f);
         dy = fminf(fmaxf(dy, 0.0f), 1.0f);
-
 
         for (int f = 0; f < FEATURES_PER_LEVEL; ++f) {
             int idx00 = hashIndices[hashOffset++];
@@ -310,12 +129,144 @@ __global__ void MLPKernel(
             for (int j = 0; j < hiddenSize1; ++j) {
                 grad += weightsLayer1[j * INPUT_SIZE + level * FEATURES_PER_LEVEL + f] * layer1OutputGradient[j];
             }
-            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
+            //grad = fminf(fmaxf(grad, -10.0f), 10.0f);
+
 
             atomicAdd(&hashTable[idx00], -hash_lr * w00 * grad);
             atomicAdd(&hashTable[idx10], -hash_lr * w10 * grad);
             atomicAdd(&hashTable[idx01], -hash_lr * w01 * grad);
             atomicAdd(&hashTable[idx11], -hash_lr * w11 * grad);
+        }
+    }
+
+
+    extern __shared__ float shared[];
+    const int warpSize = 32;
+    int warpId = tid / warpSize;
+    int laneId = tid % warpSize;
+    int numWarps = (blockDim.x + warpSize - 1) / warpSize;
+
+    float* warpGrads = shared;  // size = numWarps * NUM_MLP_PARAMS
+
+    // Zero shared memory
+    for (int i = tid; i < numWarps * NUM_MLP_PARAMS; i += blockDim.x) {
+        warpGrads[i] = 0.0f;
+    }
+    __syncthreads();
+
+    auto warpReduce = [&](float val, int paramIdx) {
+        for (int offset = warpSize/2; offset > 0; offset >>= 1)
+            val += __shfl_down_sync(0xffffffff, val, offset);
+        if (laneId == 0) {
+            warpGrads[warpId * NUM_MLP_PARAMS + paramIdx] = val;
+        }
+    };
+
+    // ---- Compute and reduce gradients per warp ----
+    int baseIdx = 0;
+    // Layer3 weights
+    for (int i = 0; i < OUTPUT_SIZE; i++) {
+        for (int j = 0; j < HIDDEN_SIZE2; j++) {
+            float grad = outputGradient[i] * activation2[j];
+            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
+            warpReduce(grad, baseIdx + i * HIDDEN_SIZE2 + j);
+        }
+    }
+    baseIdx += OUTPUT_SIZE * HIDDEN_SIZE2;
+    // Layer3 biases
+    for (int i = 0; i < OUTPUT_SIZE; i++) {
+        warpReduce(outputGradient[i], baseIdx + i);
+    }
+    baseIdx += OUTPUT_SIZE;
+    // Layer2 weights
+    for (int i = 0; i < HIDDEN_SIZE2; i++) {
+        for (int j = 0; j < HIDDEN_SIZE1; j++) {
+            float grad = layer2OutputGradient[i] * activation1[j];
+            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
+            warpReduce(grad, baseIdx + i * HIDDEN_SIZE1 + j);
+        }
+    }
+    baseIdx += HIDDEN_SIZE2 * HIDDEN_SIZE1;
+    // Layer2 biases
+    for (int i = 0; i < HIDDEN_SIZE2; i++) {
+        warpReduce(layer2OutputGradient[i], baseIdx + i);
+    }
+    baseIdx += HIDDEN_SIZE2;
+    // Layer1 weights
+    for (int i = 0; i < HIDDEN_SIZE1; i++) {
+        for (int j = 0; j < INPUT_SIZE; j++) {
+            float grad = layer1OutputGradient[i] * encodedInput[j];
+            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
+            warpReduce(grad, baseIdx + i * INPUT_SIZE + j);
+        }
+    }
+    baseIdx += HIDDEN_SIZE1 * INPUT_SIZE;
+    // Layer1 biases
+    for (int i = 0; i < HIDDEN_SIZE1; i++) {
+        warpReduce(layer1OutputGradient[i], baseIdx + i);
+    }
+
+    __syncthreads();
+
+    // ---- Block‑level reduction ----
+    int paramsPerThread = (NUM_MLP_PARAMS + blockDim.x - 1) / blockDim.x;
+    int startParam = tid * paramsPerThread;
+    int endParam = min(startParam + paramsPerThread, NUM_MLP_PARAMS);
+
+    const int CHUNK_SIZE = 16;
+    float localGrads[CHUNK_SIZE];
+
+    for (int paramChunk = startParam; paramChunk < endParam; paramChunk += CHUNK_SIZE) {
+        int chunkEnd = min(paramChunk + CHUNK_SIZE, endParam);
+        int chunkSize = chunkEnd - paramChunk;
+
+        #pragma unroll
+        for (int i = 0; i < CHUNK_SIZE; i++) localGrads[i] = 0.0f;
+
+        // Sum across warps
+        for (int w = 0; w < numWarps; w++) {
+            float* warpPtr = warpGrads + w * NUM_MLP_PARAMS + paramChunk;
+            #pragma unroll
+            for (int i = 0; i < chunkSize; i++) {
+                localGrads[i] += warpPtr[i];
+            }
+        }
+
+        // ---- Apply updates ----
+        int layer3WeightEnd = OUTPUT_SIZE * HIDDEN_SIZE2;
+        int layer3BiasEnd = layer3WeightEnd + OUTPUT_SIZE;
+        int layer2WeightEnd = layer3BiasEnd + HIDDEN_SIZE2 * HIDDEN_SIZE1;
+        int layer2BiasEnd = layer2WeightEnd + HIDDEN_SIZE2;
+        int layer1WeightEnd = layer2BiasEnd + HIDDEN_SIZE1 * INPUT_SIZE;
+        int layer1BiasEnd = layer1WeightEnd + HIDDEN_SIZE1;
+
+        for (int p = paramChunk; p < chunkEnd; p++) {
+            int localP = p - paramChunk;
+            float grad = localGrads[localP];
+            if (p < layer3WeightEnd) {
+                int i = p / HIDDEN_SIZE2;
+                int j = p % HIDDEN_SIZE2;
+                atomicAdd(&weightsLayer3[i * HIDDEN_SIZE2 + j], -learningRate * grad);
+            } else if (p < layer3BiasEnd) {
+                int i = p - layer3WeightEnd;
+                atomicAdd(&biasLayer3[i], -learningRate * grad);
+            } else if (p < layer2WeightEnd) {
+                int localIdx = p - layer3BiasEnd;
+                int i = localIdx / HIDDEN_SIZE1;
+                int j = localIdx % HIDDEN_SIZE1;
+                atomicAdd(&weightsLayer2[i * HIDDEN_SIZE1 + j], -learningRate * grad);
+            } else if (p < layer2BiasEnd) {
+                int i = p - layer2WeightEnd;
+                atomicAdd(&biasLayer2[i], -learningRate * grad);
+            } else if (p < layer1WeightEnd) {
+                int localIdx = p - layer2BiasEnd;
+                int i = localIdx / INPUT_SIZE;
+                int j = localIdx % INPUT_SIZE;
+                atomicAdd(&weightsLayer1[i * INPUT_SIZE + j], -learningRate * grad);
+            } else if (p < layer1BiasEnd) {
+                int i = p - layer1WeightEnd;
+                atomicAdd(&biasLayer1[i], -learningRate * grad);
+            }
         }
     }
 }

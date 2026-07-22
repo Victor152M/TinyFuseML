@@ -21,6 +21,7 @@ set(CMAKE_CUDA_ARCHITECTURES 61)
 set(CMAKE_EXPORT_COMPILE_COMMANDS_WRITE_INCLUDE_PATHS_DIRECTLY TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+
 add_executable(tinyfuseml
     src/main.cu
     src/mlp_kernel.cu
@@ -32,6 +33,8 @@ add_executable(tinyfuseml
     src/cli.cpp
     src/sdf_loader.cpp
 )
+
+target_compile_definitions(tinyfuseml PRIVATE DEBUG_PRINT)
 
 target_include_directories(tinyfuseml PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
