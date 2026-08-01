@@ -364,9 +364,6 @@ __global__ void MLPSDFKernel(
                 grad += weightsLayer1[j * inputSize + level * FEATURES_PER_LEVEL + f] * layer1_output_gradient[j];
             }
 
-            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
-            if (!isfinite(grad)) grad = 0.0f;
-
             // distribute to the 8 hashed storage entries using trilinear weights
             atomicAdd(&hashTable[idx000], -hash_lr * w000 * grad);
             atomicAdd(&hashTable[idx100], -hash_lr * w100 * grad);
