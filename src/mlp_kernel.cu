@@ -337,11 +337,11 @@ __global__ void MLPSDFKernel(
         float dy = fy - y0;
         float dz = fz - z0;
 
-        for (int f = 0; f < FEATURES_PER_LEVEL; ++f) {
-            dx = fminf(fmaxf(dx, 0.0f), 1.0f);
-            dy = fminf(fmaxf(dy, 0.0f), 1.0f);
-            dz = fminf(fmaxf(dz, 0.0f), 1.0f);
+        dx = fminf(fmaxf(dx, 0.0f), 1.0f);
+        dy = fminf(fmaxf(dy, 0.0f), 1.0f);
+        dz = fminf(fmaxf(dz, 0.0f), 1.0f);
 
+        for (int f = 0; f < FEATURES_PER_LEVEL; ++f) {
             int idx000 = hashIndices[hashOffset++];
             int idx100 = hashIndices[hashOffset++];
             int idx010 = hashIndices[hashOffset++];
@@ -364,9 +364,6 @@ __global__ void MLPSDFKernel(
             for (int j = 0; j < hiddenSize1; ++j) {
                 grad += weightsLayer1[j * inputSize + level * FEATURES_PER_LEVEL + f] * layer1_output_gradient[j];
             }
-
-            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
-            if (!isfinite(grad)) grad = 0.0f;
 
             // distribute to the 8 hashed storage entries using trilinear weights
             atomicAdd(&hashTable[idx000], -hash_lr * w000 * grad);
