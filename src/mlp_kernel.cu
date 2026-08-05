@@ -148,9 +148,10 @@ __global__ void MLPKernel(
         float dx = fx - x0;
         float dy = fy - y0;
 
+        dx = fminf(fmaxf(dx, 0.0f), 1.0f);
+        dy = fminf(fmaxf(dy, 0.0f), 1.0f);
+
         for (int f = 0; f < FEATURES_PER_LEVEL; ++f) {
-            dx = fminf(fmaxf(dx, 0.0f), 1.0f);
-            dy = fminf(fmaxf(dy, 0.0f), 1.0f);
             int idx00 = hashIndices[hashOffset++];
             int idx10 = hashIndices[hashOffset++];
             int idx01 = hashIndices[hashOffset++];
