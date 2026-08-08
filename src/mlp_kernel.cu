@@ -166,8 +166,6 @@ __global__ void MLPKernel(
             for (int j = 0; j < hiddenSize1; ++j) {
                 grad += weightsLayer1[j * inputSize + level * FEATURES_PER_LEVEL + f] * layer1_output_gradient[j];
             }
-            grad = fminf(fmaxf(grad, -1.0f), 1.0f);
-            if (!isfinite(grad)) grad = 0.0f;
 
             hashTable[idx00] += -hash_lr * w00 * grad;
             hashTable[idx10] += -hash_lr * w10 * grad;
