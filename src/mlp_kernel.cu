@@ -2,7 +2,7 @@
 #include <hash_encoding.cuh>
 #include <cstdio>
 
-constexpr int INPUT_SIZE = 32;
+constexpr int INPUT_SIZE = HASH_ENCODED_SIZE;
 constexpr int HIDDEN_SIZE1 = 16;
 constexpr int HIDDEN_SIZE2 = 16;
 constexpr int OUTPUT_SIZE = 3;
