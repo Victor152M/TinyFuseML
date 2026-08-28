@@ -22,7 +22,7 @@ int main(int argc, char** argv)
 
     CTrainer trainer(
         batchSize,
-        inputSize,
+        inputSize,  
         hiddenSize1,
         hiddenSize2,
         outputSize,

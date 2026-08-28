@@ -171,10 +171,10 @@ __global__ void MLPKernel(
 
             // updates without atomics greatly improve speed - e.g: aroudn 20-30% extra throughput
             // no significant quality/PSNR differences were observed
-            hashTable[idx00] += -hash_lr * w00 * grad;
-            hashTable[idx10] += -hash_lr * w10 * grad;
-            hashTable[idx01] += -hash_lr * w01 * grad;
-            hashTable[idx11] += -hash_lr * w11 * grad;
+            atomicAdd(&hashTable[idx00], -hash_lr * w00 * grad);
+            atomicAdd(&hashTable[idx10], -hash_lr * w10 * grad);
+            atomicAdd(&hashTable[idx01], -hash_lr * w01 * grad);
+            atomicAdd(&hashTable[idx11], -hash_lr * w11 * grad);
         }
     }
 
